@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Поле Чудес</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.4.2/lib/p5.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    .letter-box {
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #2d3748;
+      border: 2px solid #4a5568;
+      font-size: 24px;
+      font-weight: bold;
+      margin: 5px;
+    }
+    .letter-box.revealed {
+      background-color: #f6ad55;
+      color: #1a202c;
+    }
+    .wheel-pointer {
+      position: absolute;
+      top: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 15px solid transparent;
+      border-right: 15px solid transparent;
+      border-bottom: 30px solid red;
+      z-index: 10;
+    }
+    .player-active {
+      box-shadow: 0 0 0 3px #f6ad55;
+    }
+    .word-slider {
+      position: fixed;
+      bottom: -300px;
+      left: 0;
+      right: 0;
+      background-color: #2d3748;
+      padding: 20px;
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
+      transition: bottom 0.3s ease-out;
+      z-index: 100;
+    }
+    .word-slider.open {
+      bottom: 0;
+    }
+    .slide-up-button {
+      animation: slideUp 0.5s ease-out forwards;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .blitz-answer {
+      width: 20px;
+      height: 20px;
+      display: inline-block;
+      margin-left: 10px;
+    }
+    .blitz-correct {
+      color: green;
+    }
+    .blitz-wrong {
+      color: red;
+    }
+    /* Podium Styles */
+    .podium {
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      height: 400px;
+      width: 100%;
+      max-width: 600px;
+      margin: 0 auto;
+      opacity: 0;
+      animation: podiumFadeIn 1s ease-out forwards;
+    }
+    @keyframes podiumFadeIn {
+      from { opacity: 0; transform: scale(0.5); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .podium-step {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 10px;
+      opacity: 0;
+      transition: opacity 0.5s ease-out;
+    }
+    .podium-step:nth-child(1) { height: 300px; background-color: #FFD700; }
+    .podium-step:nth-child(2) { height: 250px; background-color: #C0C0C0; }
+    .podium-step:nth-child(3) { height: 200px; background-color: #CD7F32; }
+    .podium-step.visible {
+      opacity: 1;
+    }
+    .podium-team {
+      margin-top: 10px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // Данные игры
+    const gameData = {
+      rounds: [
+        {
+          theme: "Животные",
+          words: ["ЛЕОПАРД", "ЖИРАФ", "КРОКОДИЛ"],
+          questions: [
+            "Этот хищник из семейства кошачьих с пятнистой шкурой",
+            "Самое высокое животное на планете",
+            "Крупная рептилия с мощными челюстями"
+          ],
+          blitzQuestions: [
+            "Какое животное самое быстрое на суше? (гепард)",
+            "Какое животное имеет самый длинный язык? (муравьед)",
+            "Какое животное спит стоя? (лошадь)"
+          ]
+        },
+        {
+          theme: "Техника",
+          words: ["ХОЛОДИЛЬНИК", "ТЕЛЕВИЗОР", "СМАРТФОН"],
+          questions: [
+            "Бытовая техника для хранения продуктов при низкой температуре",
+            "Устройство для просмотра телепередач",
+            "Современный мобильный телефон с сенсорным экраном"
+          ],
+          blitzQuestions: [
+            "Какой компании принадлежит бренд iPhone? (Apple)",
+            "Как называется операционная система от Google? (Android)",
+            "Какой процессор чаще всего используют в компьютерах? (Intel)"
+          ]
+        },
+        {
+          theme: "Города",
+          words: ["ПАРИЖ", "ТОКИО", "МОСКВА"],
+          questions: [
+            "Столица Франции, город любви",
+            "Столица Японии, город небоскрёбов",
+            "Столица России, город на семи холмах"
+          ],
+          blitzQuestions: [
+            "Какой город называют 'Большим яблоком'? (Нью-Йорк)",
+            "В каком городе находится статуя Христа-Искупителя? (Рио-де-Жанейро)",
+            "Какой город самый населённый в мире? (Токио)"
+          ]
+        }
+      ],
+      finalRound: {
+        theme: "Кино",
+        word: "ОСКАР",
+        question: "Самая престижная кинопремия"
+      }
+    };
+
+    const wheelSectors = [
+      { type: "points", value: 350 },
+      { type: "points", value: 400 },
+      { type: "points", value: 450 },
+      { type: "points", value: 500 },
+      { type: "points", value: 600 },
+      { type: "points", value: 650 },
+      { type: "points", value: 700 },
+      { type: "points", value: 750 },
+      { type: "points", value: 800 },
+      { type: "points", value: 850 },
+      { type: "points", value: 950 },
+      { type: "points", value: 1000 },
+      { type: "blackbox", value: 0 }, // Только один черный ящик
+      { type: "blitz", value: 0 }
+    ];
+
+    // Основной компонент игры
+    function App() {
+      const [gameState, setGameState] = React.useState("teamInput");
+      const [teams, setTeams] = React.useState([]);
+      const [currentRound, setCurrentRound] = React.useState(0);
+      const [currentWordIndex, setCurrentWordIndex] = React.useState(0);
+      const [revealedLetters, setRevealedLetters] = React.useState([]);
+      const [usedLetters, setUsedLetters] = React.useState([]);
+      const [wheelSpinning, setWheelSpinning] = React.useState(false);
+      const [currentSector, setCurrentSector] = React.useState(null);
+      const [currentPlayerIndex, setCurrentPlayerIndex] = React.useState(0);
+      const [scores, setScores] = React.useState({});
+      const [winners, setWinners] = React.useState([]);
+      const [blackBoxVisible, setBlackBoxVisible] = React.useState(false);
+      const [hasBlackBoxTriggered, setHasBlackBoxTriggered] = React.useState(false);
+      const [showBlackBoxChoice, setShowBlackBoxChoice] = React.useState(false);
+      const [showWordSlider, setShowWordSlider] = React.useState(false);
+      const [wordGuess, setWordGuess] = React.useState("");
+      const [showBlitz, setShowBlitz] = React.useState(false);
+      const [blitzStarted, setBlitzStarted] = React.useState(false);
+      const [blitzAnswers, setBlitzAnswers] = React.useState([]);
+      const [blitzTimer, setBlitzTimer] = React.useState(null);
+      const [timeLeft, setTimeLeft] = React.useState(10);
+      const [finalAngle, setFinalAngle] = React.useState(0);
+      const [spinsInRound2, setSpinsInRound2] = React.useState(0);
+      const [podiumTeams, setPodiumTeams] = React.useState([]);
+      const [podiumVisible, setPodiumVisible] = React.useState({ 3: false, 2: false, 1: false });
+
+      // Инициализация игры
+      const startGame = (teamNames) => {
+        const initialTeams = teamNames.filter(name => name.trim() !== "");
+        const initialScores = {};
+        initialTeams.forEach(team => { initialScores[team] = 0; });
+        setTeams(initialTeams);
+        setScores(initialScores);
+        setCurrentRound(0);
+        setCurrentWordIndex(0);
+        setRevealedLetters([]);
+        setUsedLetters([]);
+        setCurrentPlayerIndex(0);
+        setWinners([]);
+        setHasBlackBoxTriggered(false);
+        setSpinsInRound2(0);
+        setPodiumTeams([]);
+        setPodiumVisible({ 3: false, 2: false, 1: false });
+        setGameState("roundIntro");
+      };
+
+      // Начало раунда
+      const startRound = () => {
+        setRevealedLetters([]);
+        setUsedLetters([]);
+        setCurrentPlayerIndex(Math.floor(Math.random() * teams.length));
+        if (currentRound !== 1) {
+          setSpinsInRound2(0);
+        }
+        setGameState("game");
+      };
+
+      // Вращение барабана
+      const spinWheel = () => {
+        if (wheelSpinning) return;
+        setWheelSpinning(true);
+        setCurrentSector(null);
+        console.log("Начинаем вращение барабана...");
+
+        let sector;
+        let availableSectors = wheelSectors;
+
+        // Логика для второго раунда
+        if (currentRound === 1) {
+          const newSpins = spinsInRound2 + 1;
+          setSpinsInRound2(newSpins);
+          console.log(`Вращений во втором раунде: ${newSpins}`);
+
+          // Фильтруем сектора: черный ящик доступен только во 2-м раунде и если еще не был использован
+          availableSectors = wheelSectors.filter(sector => {
+            if (sector.type === "blackbox") {
+              return currentRound === 1 && !hasBlackBoxTriggered;
+            }
+            return true;
+          });
+
+          // Если черный ящик еще не выпал и это 10-е вращение, форсируем его
+          if (!hasBlackBoxTriggered && newSpins >= 10) {
+            console.log("Форсируем черный ящик, так как он не выпал после 10 вращений");
+            sector = wheelSectors.find(s => s.type === "blackbox");
+          } else {
+            const randomSectorIndex = Math.floor(Math.random() * availableSectors.length);
+            sector = availableSectors[randomSectorIndex];
+          }
+        } else {
+          // В других раундах черный ящик недоступен
+          availableSectors = wheelSectors.filter(sector => sector.type !== "blackbox");
+          const randomSectorIndex = Math.floor(Math.random() * availableSectors.length);
+          sector = availableSectors[randomSectorIndex];
+        }
+
+        // Для расчета угла используем индекс из полного массива wheelSectors
+        const originalIndex = wheelSectors.findIndex(s => s === sector);
+        const sectorAngle = (2 * Math.PI / wheelSectors.length) * originalIndex - Math.PI / 2 + Math.PI / wheelSectors.length;
+        setFinalAngle(-sectorAngle);
+
+        setTimeout(() => {
+          setWheelSpinning(false);
+          setCurrentSector(sector);
+          console.log(`Выпал сектор: ${sector.type === "points" ? sector.value + " очков" : sector.type}`);
+          switch(sector.type) {
+            case "blackbox":
+              console.log("Активирован черный ящик!");
+              setHasBlackBoxTriggered(true);
+              setBlackBoxVisible(true);
+              setTimeout(() => {
+                setBlackBoxVisible(false);
+                setShowBlackBoxChoice(true); // Показываем окно выбора очков для текущей команды
+              }, 3000);
+              break;
+            case "blitz":
+              console.log("Показываем окно блиц-раунда!");
+              setShowBlitz(true);
+              setBlitzStarted(false);
+              break;
+            default:
+              // Не добавляем очки сразу, только сохраняем сектор
+              break;
+          }
+        }, 3000);
+      };
+
+      // Обработка выбора очков для черного ящика
+      const handleBlackBoxChoice = (points) => {
+        const selectedTeam = teams[currentPlayerIndex];
+        const newScores = { ...scores };
+        newScores[selectedTeam] += points;
+        setScores(newScores);
+        console.log(`Команде ${selectedTeam} начислено ${points} очков от черного ящика`);
+        setShowBlackBoxChoice(false);
+        setTimeout(() => {
+          nextPlayer();
+        }, 2000);
+      };
+
+      // Отказ от черного ящика
+      const handleBlackBoxDecline = () => {
+        setShowBlackBoxChoice(false);
+        setTimeout(() => {
+          nextPlayer();
+        }, 2000);
+      };
+
+      // Начало блица
+      const startBlitz = () => {
+        setBlitzStarted(true);
+        setBlitzAnswers([]);
+        setTimeLeft(10);
+        const timer = setInterval(() => {
+          setTimeLeft(prev => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        setBlitzTimer(timer);
+      };
+
+      // Проверка ответа в блице
+      const checkBlitzAnswer = (answer) => {
+        const currentRoundData = gameData.rounds[currentRound];
+        const questionIndex = blitzAnswers.length;
+        const correctAnswer = currentRoundData.blitzQuestions[questionIndex].match(/\(([^)]+)\)/)[1].toLowerCase();
+        const isCorrect = answer.toLowerCase() === correctAnswer;
+        const newAnswers = [...blitzAnswers, isCorrect];
+        setBlitzAnswers(newAnswers);
+        if (isCorrect) {
+          const newScores = { ...scores };
+          newScores[teams[currentPlayerIndex]] += 100;
+          setScores(newScores);
+        }
+        if (newAnswers.length < 3) {
+          clearInterval(blitzTimer);
+          setTimeLeft(10);
+          const timer = setInterval(() => {
+            setTimeLeft(prev => {
+              if (prev <= 1) {
+                clearInterval(timer);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+          setBlitzTimer(timer);
+        } else {
+          endBlitz();
+        }
+      };
+
+      // Завершение блица
+      const endBlitz = () => {
+        clearInterval(blitzTimer);
+        setBlitzTimer(null);
+        setBlitzStarted(false);
+        setTimeout(() => {
+          setShowBlitz(false);
+          nextPlayer();
+        }, 2000);
+      };
+
+      // Проверка буквы
+      const checkLetter = (letter) => {
+        if (!letter || letter.length !== 1 || !currentSector) return;
+        const upperLetter = letter.toUpperCase();
+        const currentWord = gameData.rounds[currentRound].words[currentWordIndex];
+        const letterPositions = [];
+        for (let i = 0; i < currentWord.length; i++) {
+          if (currentWord[i] === upperLetter && !revealedLetters.includes(i)) {
+            letterPositions.push(i);
+          }
+        }
+        if (letterPositions.length > 0) {
+          console.log("Play correct answer sound");
+          setRevealedLetters([...revealedLetters, ...letterPositions]);
+          setUsedLetters([...usedLetters, upperLetter]);
+          if (currentSector.type === "points") {
+            const newScores = { ...scores };
+            newScores[teams[currentPlayerIndex]] += currentSector.value;
+            setScores(newScores);
+            console.log(`Игроку ${teams[currentPlayerIndex]} начислено ${currentSector.value} очков`);
+          }
+          if (revealedLetters.length + letterPositions.length === currentWord.length) {
+            setTimeout(() => {
+              endRound(teams[currentPlayerIndex]);
+            }, 2000);
+          } else {
+            setCurrentSector(null);
+          }
+        } else {
+          console.log("Play wrong answer sound");
+          setUsedLetters([...usedLetters, upperLetter]);
+          nextPlayer();
+          setCurrentSector(null);
+        }
+      };
+
+      // Проверка слова целиком
+      const checkWord = (word) => {
+        const currentWord = gameData.rounds[currentRound].words[currentWordIndex];
+        if (word.toUpperCase() === currentWord) {
+          console.log("Play victory sound");
+          const allLetters = [];
+          for (let i = 0; i < currentWord.length; i++) {
+            allLetters.push(i);
+          }
+          setRevealedLetters(allLetters);
+          if (currentSector && currentSector.type === "points") {
+            const newScores = { ...scores };
+            newScores[teams[currentPlayerIndex]] += currentSector.value * 2; // Удваиваем очки
+            setScores(newScores);
+            console.log(`Игроку ${teams[currentPlayerIndex]} начислено ${currentSector.value * 2} очков за слово`);
+          }
+          setTimeout(() => {
+            endRound(teams[currentPlayerIndex]);
+          }, 2000);
+        } else {
+          console.log("Play wrong answer sound");
+          nextPlayer();
+          setCurrentSector(null);
+        }
+        setShowWordSlider(false);
+        setWordGuess("");
+      };
+
+      // Переход к следующему игроку
+      const nextPlayer = () => {
+        setCurrentPlayerIndex((prevIndex) => (prevIndex + 1) % teams.length);
+        setCurrentSector(null);
+      };
+
+      // Завершение раунда
+      const endRound = (winner) => {
+        if (winner) {
+          const newWinners = [...winners, winner];
+          setWinners(newWinners);
+          if (currentRound < 2) {
+            setCurrentRound(currentRound + 1);
+            setCurrentWordIndex(0);
+            setGameState("roundIntro");
+          } else {
+            // После третьего раунда показываем пьедестал
+            const sortedTeams = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+            const topThree = sortedTeams.slice(0, 3).map(([team, score]) => ({ team, score }));
+            setPodiumTeams(topThree);
+            setGameState("podium");
+            // Анимация появления команд
+            setTimeout(() => setPodiumVisible(prev => ({ ...prev, 3: true })), 1000);
+            setTimeout(() => setPodiumVisible(prev => ({ ...prev, 2: true })), 2000);
+            setTimeout(() => setPodiumVisible(prev => ({ ...prev, 1: true })), 3000);
+          }
+        } else {
+          if (currentRound < 2) {
+            setCurrentRound(currentRound + 1);
+            setCurrentWordIndex(0);
+            setGameState("roundIntro");
+          } else {
+            // После третьего раунда показываем пьедестал
+            const sortedTeams = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+            const topThree = sortedTeams.slice(0, 3).map(([team, score]) => ({ team, score }));
+            setPodiumTeams(topThree);
+            setGameState("podium");
+            // Анимация появления команд
+            setTimeout(() => setPodiumVisible(prev => ({ ...prev, 3: true })), 1000);
+            setTimeout(() => setPodiumVisible(prev => ({ ...prev, 2: true })), 2000);
+            setTimeout(() => setPodiumVisible(prev => ({ ...prev, 1: true })), 3000);
+          }
+        }
+      };
+
+      // Начало финального раунда
+      const startFinalRound = () => {
+        setRevealedLetters([]);
+        setUsedLetters([]);
+        setCurrentPlayerIndex(Math.floor(Math.random() * teams.length));
+        setGameState("final");
+      };
+
+      // Проверка буквы в финальном раунде
+      const checkFinalLetter = (letter) => {
+        if (!letter || letter.length !== 1 || !currentSector || currentSector.type !== "points") return;
+        const upperLetter = letter.toUpperCase();
+        const currentWord = gameData.finalRound.word;
+        const letterPositions = [];
+        for (let i = 0; i < currentWord.length; i++) {
+          if (currentWord[i] === upperLetter && !revealedLetters.includes(i)) {
+            letterPositions.push(i);
+          }
+        }
+        if (letterPositions.length > 0) {
+          console.log("Play correct answer sound");
+          setRevealedLetters([...revealedLetters, ...letterPositions]);
+          setUsedLetters([...usedLetters, upperLetter]);
+          if (currentSector.type === "points") {
+            const newScores = { ...scores };
+            newScores[teams[currentPlayerIndex]] += currentSector.value;
+            setScores(newScores);
+            console.log(`Игроку ${teams[currentPlayerIndex]} начислено ${currentSector.value} очков`);
+          }
+          if (revealedLetters.length + letterPositions.length === currentWord.length) {
+            setTimeout(() => {
+              endFinalRound(teams[currentPlayerIndex]);
+            }, 2000);
+          } else {
+            setCurrentSector(null);
+          }
+        } else {
+          console.log("Play wrong answer sound");
+          setUsedLetters([...usedLetters, upperLetter]);
+          nextPlayer();
+          setCurrentSector(null);
+        }
+      };
+
+      // Проверка слова в финальном раунде
+      const checkFinalWord = (word) => {
+        if (word.toUpperCase() === gameData.finalRound.word) {
+          console.log("Play victory sound");
+          const allLetters = [];
+          for (let i = 0; i < gameData.finalRound.word.length; i++) {
+            allLetters.push(i);
+          }
+          setRevealedLetters(allLetters);
+          if (currentSector && currentSector.type === "points") {
+            const newScores = { ...scores };
+            newScores[teams[currentPlayerIndex]] += currentSector.value * 2; // Удваиваем очки
+            setScores(newScores);
+            console.log(`Игроку ${teams[currentPlayerIndex]} начислено ${currentSector.value * 2} очков за слово`);
+          }
+          setTimeout(() => {
+            endFinalRound(teams[currentPlayerIndex]);
+          }, 2000);
+        } else {
+          console.log("Play wrong answer sound");
+          nextPlayer();
+          setCurrentSector(null);
+        }
+        setShowWordSlider(false);
+        setWordGuess("");
+      };
+
+      // Завершение финального раунда
+      const endFinalRound = (winner) => {
+        setGameState("gameOver");
+      };
+
+      // Открытие слайдера для ввода слова
+      const openWordSlider = () => {
+        setShowWordSlider(true);
+      };
+
+      // Закрытие слайдера
+      const closeWordSlider = () => {
+        setShowWordSlider(false);
+        setWordGuess("");
+      };
+
+      // Перезапуск игры
+      const restartGame = () => {
+        setGameState("teamInput");
+        setTeams([]);
+        setScores({});
+        setCurrentRound(0);
+        setCurrentWordIndex(0);
+        setRevealedLetters([]);
+        setUsedLetters([]);
+        setCurrentPlayerIndex(0);
+        setWinners([]);
+        setBlackBoxVisible(false);
+        setHasBlackBoxTriggered(false);
+        setShowBlackBoxChoice(false);
+        setShowWordSlider(false);
+        setWordGuess("");
+        setShowBlitz(false);
+        setBlitzStarted(false);
+        setBlitzAnswers([]);
+        if (blitzTimer) clearInterval(blitzTimer);
+        setBlitzTimer(null);
+        setSpinsInRound2(0);
+        setPodiumTeams([]);
+        setPodiumVisible({ 3: false, 2: false, 1: false });
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
+          {gameState === "teamInput" && (
+            <TeamInput onStart={startGame} />
+          )}
+          {gameState === "roundIntro" && (
+            <RoundIntro 
+              round={currentRound + 1}
+              theme={gameData.rounds[currentRound].theme}
+              onStart={startRound}
+            />
+          )}
+          {gameState === "game" && (
+            <GameScreen
+              teams={teams}
+              currentPlayerIndex={currentPlayerIndex}
+              scores={scores}
+              word={gameData.rounds[currentRound].words[currentWordIndex]}
+              question={gameData.rounds[currentRound].questions[currentWordIndex]}
+              revealedLetters={revealedLetters}
+              usedLetters={usedLetters}
+              wheelSpinning={wheelSpinning}
+              currentSector={currentSector}
+              onSpinWheel={spinWheel}
+              onCheckLetter={checkLetter}
+              onOpenWordSlider={openWordSlider}
+              blackBoxVisible={blackBoxVisible}
+              finalAngle={finalAngle}
+            />
+          )}
+          {gameState === "finalIntro" && (
+            <FinalIntro 
+              theme={gameData.finalRound.theme}
+              onStart={startFinalRound}
+            />
+          )}
+          {gameState === "final" && (
+            <FinalScreen
+              teams={teams}
+              currentPlayerIndex={currentPlayerIndex}
+              word={gameData.finalRound.word}
+              question={gameData.finalRound.question}
+              revealedLetters={revealedLetters}
+              usedLetters={usedLetters}
+              wheelSpinning={wheelSpinning}
+              currentSector={currentSector}
+              onSpinWheel={spinWheel}
+              onCheckLetter={checkFinalLetter}
+              onOpenWordSlider={openWordSlider}
+              finalAngle={finalAngle}
+            />
+          )}
+          {gameState === "gameOver" && (
+            <GameOver 
+              winners={winners}
+              scores={scores}
+              onRestart={restartGame}
+            />
+          )}
+          {gameState === "podium" && (
+            <Podium 
+              teams={podiumTeams}
+              podiumVisible={podiumVisible}
+              onFinish={() => setGameState("gameOver")}
+            />
+          )}
+          <WordSlider
+            isOpen={showWordSlider}
+            wordGuess={wordGuess}
+            onWordGuessChange={setWordGuess}
+            onSubmit={gameState === "final" ? checkFinalWord : checkWord}
+            onClose={closeWordSlider}
+          />
+          {showBlitz && (
+            <BlitzScreen
+              question={gameData.rounds[currentRound].blitzQuestions[blitzAnswers.length]}
+              timeLeft={timeLeft}
+              blitzAnswers={blitzAnswers}
+              onAnswer={checkBlitzAnswer}
+              blitzStarted={blitzStarted}
+              onStartBlitz={startBlitz}
+            />
+          )}
+          {showBlackBoxChoice && (
+            <BlackBoxChoice
+              team={teams[currentPlayerIndex]}
+              onAddPoints={handleBlackBoxChoice}
+              onDecline={handleBlackBoxDecline}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // Компонент ввода команд
+    function TeamInput({ onStart }) {
+      const [teamNames, setTeamNames] = React.useState(["", "", "", "", ""]);
+      const handleNameChange = (index, value) => {
+        const newNames = [...teamNames];
+        newNames[index] = value.slice(0, 20);
+        setTeamNames(newNames);
+      };
+      const handleStart = () => {
+        const validNames = teamNames.filter(name => name.trim() !== "");
+        if (validNames.length > 0) {
+          onStart(validNames);
+        }
+      };
+      const canStart = teamNames.some(name => name.trim() !== "");
+      return (
+        <div className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full">
+          <h1 className="text-2xl font-bold mb-6 text-center">Поле Чудес</h1>
+          <p className="mb-4">Введите названия 5 команд:</p>
+          {teamNames.map((name, index) => (
+            <div key={index} className="mb-3">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => handleNameChange(index, e.target.value)}
+                placeholder={`Команда ${index + 1}`}
+                className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:border-yellow-400 focus:outline-none"
+              />
+            </div>
+          ))}
+          <button
+            onClick={handleStart}
+            disabled={!canStart}
+            className={`w-full mt-4 p-3 rounded font-bold ${canStart ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-gray-500 cursor-not-allowed'}`}
+          >
+            Начать игру
+          </button>
+        </div>
+      );
+    }
+
+    // Компонент введения в раунд
+    function RoundIntro({ round, theme, onStart }) {
+      return (
+        <div className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold mb-4">Раунд {round}</h1>
+          <h2 className="text-xl mb-6">Тема: <span className="text-yellow-400">{theme}</span></h2>
+          <button
+            onClick={onStart}
+            className="w-full mt-4 p-3 rounded font-bold bg-yellow-500 hover:bg-yellow-600"
+          >
+            Начать раунд
+          </button>
+        </div>
+      );
+    }
+
+    // Компонент игрового экрана
+    function GameScreen({
+      teams,
+      currentPlayerIndex,
+      scores,
+      word,
+      question,
+      revealedLetters,
+      usedLetters,
+      wheelSpinning,
+      currentSector,
+      onSpinWheel,
+      onCheckLetter,
+      onOpenWordSlider,
+      blackBoxVisible,
+      finalAngle
+    }) {
+      const [letterInput, setLetterInput] = React.useState("");
+      const handleLetterSubmit = (e) => {
+        e.preventDefault();
+        if (letterInput && currentSector && !usedLetters.includes(letterInput.toUpperCase())) {
+          onCheckLetter(letterInput);
+          setLetterInput("");
+        }
+      };
+      const isLetterUsed = letterInput && usedLetters.includes(letterInput.toUpperCase());
+
+      return (
+        <div className="w-full max-w-4xl">
+          <div className="bg-gray-800 rounded-lg p-4 mb-6">
+            <h2 className="text-xl font-bold mb-2 text-center">Счёт</h2>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              {teams.map((team, index) => (
+                <div 
+                  key={team} 
+                  className={`p-2 rounded ${index === currentPlayerIndex ? 'player-active bg-gray-700' : 'bg-gray-700'}`}
+                >
+                  <div className="font-semibold truncate">{team}</div>
+                  <div className="text-lg">{scores[team] || 0}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-gray-800 p-4 rounded-lg mb-6 text-center">
+            <h3 className="text-xl font-bold text-yellow-400">Вопрос:</h3>
+            <p>{question}</p>
+          </div>
+          <div className="flex flex-wrap justify-center mb-8">
+            {Array.from(word).map((_, index) => (
+              <div 
+                key={index} 
+                className={`letter-box ${revealedLetters.includes(index) ? 'revealed' : ''}`}
+              >
+                {revealedLetters.includes(index) ? word[index] : ''}
+              </div>
+            ))}
+          </div>
+          <div className="text-center my-4">
+            <h2 className="text-xl font-bold">Сейчас ходит: <span className="text-yellow-400">{teams[currentPlayerIndex]}</span></h2>
+          </div>
+          <div className="flex flex-col items-center mt-6">
+            <div className="relative mb-4">
+              <Wheel spinning={wheelSpinning} sector={currentSector} finalAngle={finalAngle} />
+              <div className="wheel-pointer"></div>
+            </div>
+            {!wheelSpinning && !currentSector && (
+              <button
+                onClick={onSpinWheel}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold text-lg"
+              >
+                Крутить барабан
+              </button>
+            )}
+            {currentSector && currentSector.type === "points" && (
+              <div className="mt-4">
+                <form onSubmit={handleLetterSubmit} className="flex flex-col items-center">
+                  <input
+                    type="text"
+                    value={letterInput}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (/^[а-яА-Я]?$/.test(val)) {
+                        setLetterInput(val);
+                      }
+                    }}
+                    maxLength={1}
+                    placeholder="Введите букву"
+                    className="w-16 h-16 text-3xl text-center rounded bg-gray-700 border border-gray-600 focus:border-yellow-400 focus:outline-none mb-4"
+                    disabled={!currentSector || currentSector.type !== "points"}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!letterInput || isLetterUsed || !currentSector || currentSector.type !== "points"}
+                    className={`px-6 py-2 rounded font-bold ${!letterInput || isLetterUsed ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                  >
+                    Назвать букву
+                  </button>
+                </form>
+                <button
+                  onClick={onOpenWordSlider}
+                  className="mt-4 px-6 py-2 bg-yellow-500 hover:bg-yellow-600 rounded font-bold slide-up-button"
+                >
+                  Назвать слово
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="mt-6 text-center">
+            <p>Использованные буквы: {usedLetters.join(", ")}</p>
+          </div>
+          {blackBoxVisible && <BlackBoxAnimation />}
+        </div>
+      );
+    }
+
+    // Компонент барабана
+    function Wheel({ spinning, sector, finalAngle }) {
+      const wheelRef = React.useRef(null);
+      const p5Ref = React.useRef(null);
+      React.useEffect(() => {
+        const sketch = (p5) => {
+          let angle = 0;
+          let spinSpeed = 0;
+          const sectorAngles = Array(wheelSectors.length).fill(0).map((_, i) => p5.TWO_PI / wheelSectors.length * i - p5.PI/2);
+          p5.setup = () => {
+            const canvas = p5.createCanvas(400, 400);
+            canvas.parent(wheelRef.current);
+            p5.angleMode(p5.RADIANS);
+          };
+          p5.draw = () => {
+            p5.background(50);
+            p5.translate(200, 200);
+            if (spinning) {
+              spinSpeed = p5.lerp(spinSpeed, 0.1, 0.02);
+              angle += spinSpeed;
+            } else if (finalAngle !== 0) {
+              angle = p5.lerp(angle, finalAngle, 0.1);
+            }
+            p5.rotate(angle - p5.PI / 2);
+            for (let i = 0; i < wheelSectors.length; i++) {
+              const startAngle = sectorAngles[i];
+              const endAngle = sectorAngles[(i + 1) % wheelSectors.length];
+              if (wheelSectors[i].type === "blackbox") {
+                p5.fill(0);
+              } else if (wheelSectors[i].type === "blitz") {
+                p5.fill(255, 215, 0);
+              } else {
+                p5.fill(100, 150, 255);
+              }
+              p5.stroke(255);
+              p5.strokeWeight(2);
+              p5.arc(0, 0, 380, 380, startAngle, endAngle, p5.PIE);
+              p5.push();
+              p5.rotate((startAngle + endAngle) / 2);
+              p5.textSize(16);
+              p5.fill(0);
+              p5.textAlign(p5.CENTER, p5.CENTER);
+              if (wheelSectors[i].type === "blackbox") {
+                p5.text("Ящик", 120, 0);
+              } else if (wheelSectors[i].type === "blitz") {
+                p5.text("Блиц", 120, 0);
+              } else {
+                p5.text(wheelSectors[i].value, 120, 0);
+              }
+              p5.pop();
+            }
+            p5.fill(255);
+            p5.ellipse(0, 0, 40, 40);
+          };
+        };
+        p5Ref.current = new p5(sketch);
+        return () => {
+          if (p5Ref.current) {
+            p5Ref.current.remove();
+          }
+        };
+      }, [spinning, finalAngle]);
+      return (
+        <div className="relative">
+          <div ref={wheelRef}></div>
+          {sector && (
+            <div className="mt-4 text-center">
+              <p className="text-xl font-bold">
+                {sector.type === "blackbox" ? "Чёрный ящик!" : 
+                 sector.type === "blitz" ? "Блиц-раунд!" : 
+                 `Выпало: ${sector.value} очков`}
+              </p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Компонент анимации чёрного ящика
+    function BlackBoxAnimation() {
+      const p5Ref = React.useRef(null);
+      React.useEffect(() => {
+        const sketch = (p5) => {
+          let scale = 0;
+          let opacity = 0;
+          p5.setup = () => {
+            const canvas = p5.createCanvas(400, 300);
+            canvas.parent('black-box-animation');
+            canvas.style('position', 'fixed');
+            canvas.style('top', '50%');
+            canvas.style('left', '50%');
+            canvas.style('transform', 'translate(-50%, -50%)');
+            canvas.style('z-index', '100');
+          };
+          p5.draw = () => {
+            p5.clear();
+            scale = p5.lerp(scale, 1, 0.1);
+            opacity = p5.lerp(opacity, 255, 0.1);
+            p5.translate(p5.width / 2, p5.height / 2);
+            p5.scale(scale);
+            p5.fill(0, opacity);
+            p5.stroke(255, opacity);
+            p5.strokeWeight(4);
+            p5.rect(-150, -100, 300, 200, 20);
+            p5.fill(255, opacity);
+            p5.textSize(32);
+            p5.textAlign(p5.CENTER, p5.CENTER);
+            p5.text("Чёрный ящик", 0, 0);
+          };
+        };
+        p5Ref.current = new p5(sketch);
+        return () => {
+          if (p5Ref.current) {
+            p5Ref.current.remove();
+          }
+        };
+      }, []);
+      return <div id="black-box-animation"></div>;
+    }
+
+    // Компонент выбора для черного ящика
+    function BlackBoxChoice({ team, onAddPoints, onDecline }) {
+      const [points, setPoints] = React.useState("");
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        const pointsValue = parseInt(points, 10);
+        if (pointsValue > 0) {
+          onAddPoints(pointsValue);
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg shadow-lg text-center max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4">Чёрный ящик</h3>
+            <p className="mb-4">Введите количество очков для команды <span className="text-yellow-400">{team}</span>:</p>
+            <form onSubmit={handleSubmit} className="flex flex-col items-center">
+              <input
+                type="number"
+                value={points}
+                onChange={(e) => setPoints(e.target.value)}
+                placeholder="Введите очки"
+                className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:border-yellow-400 focus:outline-none mb-4"
+                min="1"
+              />
+              <div className="flex gap-4">
+                <button
+                  type="submit"
+                  disabled={!points || parseInt(points) <= 0}
+                  className={`px-6 py-2 rounded font-bold ${!points || parseInt(points) <= 0 ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                >
+                  Добавить
+                </button>
+                <button
+                  onClick={onDecline}
+                  className="px-6 py-2 rounded font-bold bg-red-600 hover:bg-red-700"
+                >
+                  Отказаться
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // Компонент введения в финальный раунд
+    function FinalIntro({ theme, onStart }) {
+      return (
+        <div className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold mb-4">Финальный раунд</h1>
+          <h2 className="text-xl mb-6">Тема: <span className="text-yellow-400">{theme}</span></h2>
+          <button
+            onClick={onStart}
+            className="w-full mt-4 p-3 rounded font-bold bg-yellow-500 hover:bg-yellow-600"
+          >
+            Начать финал
+          </button>
+        </div>
+      );
+    }
+
+    // Компонент финального раунда
+    function FinalScreen({
+      teams,
+      currentPlayerIndex,
+      word,
+      question,
+      revealedLetters,
+      usedLetters,
+      wheelSpinning,
+      currentSector,
+      onSpinWheel,
+      onCheckLetter,
+      onOpenWordSlider,
+      finalAngle
+    }) {
+      const [letterInput, setLetterInput] = React.useState("");
+      const handleLetterSubmit = (e) => {
+        e.preventDefault();
+        if (letterInput && currentSector && !usedLetters.includes(letterInput.toUpperCase())) {
+          onCheckLetter(letterInput);
+          setLetterInput("");
+        }
+      };
+      const isLetterUsed = letterInput && usedLetters.includes(letterInput.toUpperCase());
+
+      return (
+        <div className="w-full max-w-4xl">
+          <div className="text-center my-4">
+            <h2 className="text-xl font-bold">Сейчас ходит: <span className="text-yellow-400">{teams[currentPlayerIndex]}</span></h2>
+          </div>
+          <div className="bg-gray-800 p-4 rounded-lg mb-6 text-center">
+            <h3 className="text-xl font-bold text-yellow-400">Вопрос:</h3>
+            <p>{question}</p>
+          </div>
+          <div className="flex flex-wrap justify-center mb-8">
+            {Array.from(word).map((_, index) => (
+              <div 
+                key={index} 
+                className={`letter-box ${revealedLetters.includes(index) ? 'revealed' : ''}`}
+              >
+                {revealedLetters.includes(index) ? word[index] : ''}
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col items-center mt-6">
+            <div className="relative mb-4">
+              <Wheel spinning={wheelSpinning} sector={currentSector} finalAngle={finalAngle} />
+              <div className="wheel-pointer"></div>
+            </div>
+            {!wheelSpinning && !currentSector && (
+              <button
+                onClick={onSpinWheel}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold text-lg"
+              >
+                Крутить барабан
+              </button>
+            )}
+            {currentSector && currentSector.type === "points" && (
+              <div className="mt-4">
+                <form onSubmit={handleLetterSubmit} className="flex flex-col items-center">
+                  <input
+                    type="text"
+                    value={letterInput}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (/^[а-яА-Я]?$/.test(val)) {
+                        setLetterInput(val);
+                      }
+                    }}
+                    maxLength={1}
+                    placeholder="Введите букву"
+                    className="w-16 h-16 text-3xl text-center rounded bg-gray-700 border border-gray-600 focus:border-yellow-400 focus:outline-none mb-4"
+                    disabled={!currentSector || currentSector.type !== "points"}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!letterInput || isLetterUsed || !currentSector || currentSector.type !== "points"}
+                    className={`px-6 py-2 rounded font-bold ${!letterInput || isLetterUsed ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                  >
+                    Назвать букву
+                  </button>
+                </form>
+                <button
+                  onClick={onOpenWordSlider}
+                  className="mt-4 px-6 py-2 bg-yellow-500 hover:bg-yellow-600 rounded font-bold slide-up-button"
+                >
+                  Назвать слово
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="mt-6 text-center">
+            <p>Использованные буквы: {usedLetters.join(", ")}</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Компонент слайдера для ввода слова
+    function WordSlider({ isOpen, wordGuess, onWordGuessChange, onSubmit, onClose }) {
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (wordGuess) {
+          onSubmit(wordGuess);
+        }
+      };
+      return (
+        <div className={`word-slider ${isOpen ? 'open' : ''}`}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold">Назовите слово</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-white">
+              ✕
+            </button>
+          </div>
+          <form onSubmit={handleSubmit}>
+            <input
+              type="text"
+              value={wordGuess}
+              onChange={(e) => onWordGuessChange(e.target.value)}
+              placeholder="Введите слово целиком"
+              className="w-full p-4 rounded-lg bg-gray-700 border border-gray-600 focus:border-yellow-400 focus:outline-none mb-4"
+            />
+            <button
+              type="submit"
+              disabled={!wordGuess}
+              className={`w-full p-4 rounded-lg font-bold ${!wordGuess ? 'bg-gray-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600'}`}
+            >
+              Проверить
+            </button>
+          </form>
+        </div>
+      );
+    }
+
+    // Компонент блиц-раунда
+    function BlitzScreen({ question, timeLeft, blitzAnswers, onAnswer, blitzStarted, onStartBlitz }) {
+      const [answer, setAnswer] = React.useState("");
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (answer) {
+          onAnswer(answer);
+          setAnswer("");
+        }
+      };
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg shadow-lg text-center max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4">Блиц-раунд!</h3>
+            {!blitzStarted ? (
+              <>
+                <p className="mb-4">Подготовьтесь к трем быстрым вопросам!</p>
+                <button
+                  onClick={onStartBlitz}
+                  className="px-6 py-2 rounded font-bold bg-yellow-500 hover:bg-yellow-600"
+                >
+                  Начать
+                </button>
+              </>
+            ) : (
+              <>
+                {timeLeft > 0 && <p className="mb-2">Время: {timeLeft} сек</p>}
+                <p className="mb-4">{question.split('(')[0]}</p>
+                <div className="mb-4">
+                  {blitzAnswers.map((isCorrect, index) => (
+                    <span key={index}>
+                      {isCorrect ? (
+                        <span className="blitz-answer blitz-correct">✓</span>
+                      ) : (
+                        <span className="blitz-answer blitz-wrong">✗</span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+                <form onSubmit={handleSubmit} className="flex flex-col items-center">
+                  <input
+                    type="text"
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    placeholder="Ваш ответ"
+                    className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:border-yellow-400 focus:outline-none mb-2"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!answer}
+                    className={`px-6 py-2 rounded font-bold ${!answer ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                  >
+                    Ответить
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Компонент завершения игры
+    function GameOver({ winners, scores, onRestart }) {
+      return (
+        <div className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full text-center">
+          <h1 className="text-2xl font-bold mb-6">Игра завершена!</h1>
+          {winners.length > 0 ? (
+            <>
+              <h2 className="text-xl mb-4">Победитель: <span className="text-yellow-400">{winners[winners.length - 1]}</span></h2>
+              <div className="mb-6">
+                <h3 className="font-bold mb-2">Итоговый счёт:</h3>
+                {Object.entries(scores).map(([team, score]) => (
+                  <div key={team} className="flex justify-between">
+                    <span>{team}:</span>
+                    <span>{score}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="mb-6">Победителя нет</p>
+          )}
+          <button
+            onClick={onRestart}
+            className="w-full mt-4 p-3 rounded font-bold bg-yellow-500 hover:bg-yellow-600"
+          >
+            Новая игра
+          </button>
+        </div>
+      );
+    }
+
+    // Компонент пьедестала
+    function Podium({ teams, podiumVisible, onFinish }) {
+      React.useEffect(() => {
+        const timer = setTimeout(() => {
+          onFinish();
+        }, 4000); // Переход к GameOver через 4 секунды после появления 1-го места
+        return () => clearTimeout(timer);
+      }, [onFinish]);
+
+      return (
+        <div className="podium">
+          {teams.map((teamData, index) => (
+            <div
+              key={index}
+              className={`podium-step ${podiumVisible[index + 1] ? 'visible' : ''}`}
+            >
+              <div>{index + 1} место</div>
+              <div className="podium-team">{teamData.team}</div>
+              <div>{teamData.score} очков</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // Рендеринг приложения
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
