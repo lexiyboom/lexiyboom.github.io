@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Поле Чудес</title>
-  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="./react.development.js"></script>
+  <script src="./react-dom.development.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="./babel.min.js"></script>
   <style>
     .letter-box {
       width: 50px;
@@ -180,134 +180,56 @@
   <script type="text/babel">
     // Данные игры
     const wordPool = [
-      {
-        word: "БУРАВКИН",
-        question: "Фамилию какого белорусского поэта и общественного деятеля носит автор слов гимна Полоцкого государственного университета?"
-      },
-      {
-        word: "ПАРАБОЛОИД",
-        question: "Какая композиция, расположенная возле старого корпуса, отображает единение науки и современного искусства, став для нашего вуза своеобразным символом в год научных свершений и открытий?"
-      },
-      {
-        word: "ПЕРЕКРЁСТОК",
-        question: "Налево пойдёшь – перо найдёшь, направо пойдёшь – копейку найдёшь, прямо пойдёшь – знания получишь, назад пойдёшь – домой уйдёшь, о каком месте идёт речь?"
-      },
-      {
-        word: "КОЛЛЕГИУМ",
-        question: "Меня возвели для мудрости, но я не храм. Наполняли знаниями, но я не библиотека. Много раз ломали, но я не сломлен. Кто я?"
-      },
-      {
-        word: "БАЛКОН",
-        question: "Его топило, но он не тонул. На нём было много людей, но он не митинг и всегда находился выше земли."
-      },
-      {
-        word: "СФИНКС",
-        question: "Мифическое существо с телом льва и головой человека, охраняющее загадки."
-      },
-      {
-        word: "ГЕРАКЛ",
-        question: "Герой древнегреческих мифов, известный своими двенадцатью подвигами."
-      },
-      {
-        word: "ПИРАМИДА",
-        question: "Архитектурное сооружение, служившее гробницей фараонам в Древнем Египте."
-      },
-      {
-        word: "ОЛИМП",
-        question: "Гора, где, согласно мифам, обитали древнегреческие боги."
-      },
-      {
-        word: "АФИНА",
-        question: "Богиня мудрости и войны в древнегреческой мифологии."
-      },
-      {
-        word: "ЭЙФЕЛЬ",
-        question: "Фамилия архитектора, создавшего знаменитую башню в Париже."
-      },
-      {
-        word: "КОЛИЗЕЙ",
-        question: "Древнеримский амфитеатр, где проводились гладиаторские бои."
-      },
-      {
-        word: "КРЕМЛЬ",
-        question: "Историческая крепость в центре Москвы, символ России."
-      },
-      {
-        word: "САХАРА",
-        question: "Крупнейшая пустыня в мире, расположенная в Северной Африке."
-      },
-      {
-        word: "АМАЗОНКА",
-        question: "Самая длинная река в мире, протекающая через Южную Америку."
-      }
+      { word: "БУРАВКИН", question: "Фамилию какого белорусского поэта и общественного деятеля носит автор слов гимна Полоцкого государственного университета?" },
+      { word: "ПАРАБОЛОИД", question: "Какая композиция, расположенная возле старого корпуса, отображает единение науки и современного искусства, став для нашего вуза своеобразным символом в год научных свершений и открытий?" },
+      { word: "ПЕРЕКРЁСТОК", question: "Налево пойдёшь – перо найдёшь, направо пойдёшь – копейку найдёшь, прямо пойдёшь – знания получишь, назад пойдёшь – домой уйдёшь, о каком месте идёт речь?" },
+      { word: "КОЛЛЕГИУМ", question: "Меня возвели для мудрости, но я не храм. Наполняли знаниями, но я не библиотека. Много раз ломали, но я не сломлен. Кто я?" },
+      { word: "БАЛКОН", question: "Его топило, но он не тонул. На нём было много людей, но он не митинг и всегда находился выше земли." },
+      { word: "СФИНКС", question: "Мифическое существо с телом льва и головой человека, охраняющее загадки." },
+      { word: "ГЕРАКЛ", question: "Герой древнегреческих мифов, известный своими двенадцатью подвигами." },
+      { word: "ПИРАМИДА", question: "Архитектурное сооружение, служившее гробницей фараонам в Древнем Египте." },
+      { word: "ОЛИМП", question: "Гора, где, согласно мифам, обитали древнегреческие боги." },
+      { word: "АФИНА", question: "Богиня мудрости и войны в древнегреческой мифологии." },
+      { word: "ЭЙФЕЛЬ", question: "Фамилия архитектора, создавшего знаменитую башню в Париже." },
+      { word: "КОЛИЗЕЙ", question: "Древнеримский амфитеатр, где проводились гладиаторские бои." },
+      { word: "КРЕМЛЬ", question: "Историческая крепость в центре Москвы, символ России." },
+      { word: "САХАРА", question: "Крупнейшая пустыня в мире, расположенная в Северной Африке." },
+      { word: "АМАЗОНКА", question: "Самая длинная река в мире, протекающая через Южную Америку." }
     ];
 
     const gameData = {
       rounds: [],
-      finalRound: {
-        theme: "Кино",
-        word: "ОСКАР",
-        question: "Самая престижная кинопремия"
-      },
+      finalRound: { theme: "Кино", word: "ОСКАР", question: "Самая престижная кинопремия" },
       blitzQuestionsPool: [
-        "Кол-во корпусов ПГУ? (5)",
-        "В каком году было 11 факультетов в ПГУ? (2005)",
-        "Кол-во ректоров за всю историю ПГУ? (около 15)",
-        "В каком корпусе нет актового зала? (4-й корпус)",
-        "Перевод фразы «DOCENDO DISCIMUS»? (Уча учим)",
-        "Сколько лет студенческому центру? (около 20)",
-        "На каком факультете располагаются 2 уникальные специальности в РБ? (Факультет компьютерных технологий)",
-        "Спортивный снаряд для игры в хоккей? (Клюшка)",
+        "Кол-во корпусов ПГУ? (5)", "В каком году было 11 факультетов в ПГУ? (2005)", "Кол-во ректоров за всю историю ПГУ? (около 15)",
+        "В каком корпусе нет актового зала? (4-й корпус)", "Перевод фразы «DOCENDO DISCIMUS»? (Уча учим)", "Сколько лет студенческому центру? (около 20)",
+        "На каком факультете располагаются 2 уникальные специальности в РБ? (Факультет компьютерных технологий)", "Спортивный снаряд для игры в хоккей? (Клюшка)",
         "Какой символ Полоцка, связанный с иезуитским наследием, украшает главный вход университета? (Крест иезуитов)",
         "Какое архитектурное сооружение рядом с ПГУ было построено в честь 300-летия Полоцкой епархии? (Софийский собор)",
-        "Какой факультет ПГУ был основан последним в XXI веке? (Факультет экономики и права)",
-        "В каком году ПГУ получил современное название? (1993)",
-        "Эти люди основали альмаматр? (Иезуиты)",
-        "Самый главный человек на факультете? (Декан)",
-        "Фамилия ректора, пробывшего на посту 1 год? (Ковалёв)",
-        "Сколько цветов на эмблеме ПГУ? (3)",
-        "Какой предмет обязателен для всех студентов ПГУ? (Физическая культура)",
-        "Как называется студенческая газета ПГУ? (Вестник ПГУ)",
-        "Какое событие отмечается в ПГУ 1 сентября? (День знаний)",
-        "Как называется научный журнал ПГУ? (Вестник Полоцкого государственного университета)",
-        "Как называется Wi-Fi сеть, доступная студентам в новом корпусе? (PSU_Student)",
-        "Как называется объединение ПГУ для поддержки талантливой молодёжи? (Совет молодых учёных)",
-        "Как называется ежегодный конкурс научных работ среди студентов ПГУ? (Научная весна)",
-        "Как называется программа обмена студентами ПГУ с зарубежными вузами? (Erasmus+)",
+        "Какой факультет ПГУ был основан последним в XXI веке? (Факультет экономики и права)", "В каком году ПГУ получил современное название? (1993)",
+        "Эти люди основали альмаматр? (Иезуиты)", "Самый главный человек на факультете? (Декан)", "Фамилия ректора, пробывшего на посту 1 год? (Ковалёв)",
+        "Сколько цветов на эмблеме ПГУ? (3)", "Какой предмет обязателен для всех студентов ПГУ? (Физическая культура)", "Как называется студенческая газета ПГУ? (Вестник ПГУ)",
+        "Какое событие отмечается в ПГУ 1 сентября? (День знаний)", "Как называется научный журнал ПГУ? (Вестник Полоцкого государственного университета)",
+        "Как называется Wi-Fi сеть, доступная студентам в новом корпусе? (PSU_Student)", "Как называется объединение ПГУ для поддержки талантливой молодёжи? (Совет молодых учёных)",
+        "Как называется ежегодный конкурс научных работ среди студентов ПГУ? (Научная весна)", "Как называется программа обмена студентами ПГУ с зарубежными вузами? (Erasmus+)",
         "В каком году ПГУ начал реализацию программы двойных дипломов? (2016)"
       ]
     };
 
-    // Генерация 5 раундов с фиксированными словами
     function generateRounds() {
       const selectedWords = wordPool.slice(0, 5);
-      const rounds = selectedWords.map(item => ({
-        word: item.word,
-        question: item.question
-      }));
+      const rounds = selectedWords.map(item => ({ word: item.word, question: item.question }));
       gameData.rounds = rounds;
     }
 
     const wheelSectors = [
-      { type: "points", value: 350 },
-      { type: "points", value: 400 },
-      { type: "points", value: 450 },
-      { type: "points", value: 500 },
-      { type: "points", value: 600 },
-      { type: "points", value: 650 },
-      { type: "points", value: 700 },
-      { type: "points", value: 750 },
-      { type: "points", value: 800 },
-      { type: "points", value: 850 },
-      { type: "points", value: 950 },
-      { type: "points", value: 1000 },
-      { type: "blackbox", value: 0 },
-      { type: "blitz", value: 0 },
-      { type: "plus", value: 0 },
-      { type: "plus", value: 0 } // Добавлен второй сектор "+" для увеличения вероятности
+      { type: "points", value: 350 }, { type: "points", value: 400 }, { type: "points", value: 450 },
+      { type: "points", value: 500 }, { type: "points", value: 600 }, { type: "points", value: 650 },
+      { type: "points", value: 700 }, { type: "points", value: 750 }, { type: "points", value: 800 },
+      { type: "points", value: 850 }, { type: "points", value: 950 }, { type: "points", value: 1000 },
+      { type: "blackbox", value: 0 }, { type: "blitz", value: 0 }, { type: "plus", value: 0 }, { type: "plus", value: 0 }
     ];
 
-    // Основной компонент игры
     function App() {
       const [gameState, setGameState] = React.useState("teamInput");
       const [teams, setTeams] = React.useState([]);
@@ -330,8 +252,8 @@
       const [blitzTimer, setBlitzTimer] = React.useState(null);
       const [timeLeft, setTimeLeft] = React.useState(10);
       const [finalAngle, setFinalAngle] = React.useState(0);
-      const [spinsInCurrentRound, setSpinsInCurrentRound] = React.useState(0); // Счётчик прокруток в текущем раунде
-      const [totalSpins, setTotalSpins] = React.useState(0); // Счётчик общего количества прокруток
+      const [spinsInCurrentRound, setSpinsInCurrentRound] = React.useState(0);
+      const [totalSpins, setTotalSpins] = React.useState(0);
       const [podiumTeams, setPodiumTeams] = React.useState([]);
       const [podiumVisible, setPodiumVisible] = React.useState({ 3: false, 2: false, 1: false });
       const [showPlusChoice, setShowPlusChoice] = React.useState(false);
@@ -342,11 +264,10 @@
       const [letterShakeTimeout, setLetterShakeTimeout] = React.useState(null);
       const [wordShakeTimeout, setWordShakeTimeout] = React.useState(null);
       const [activeAudios, setActiveAudios] = React.useState([]);
-      const [hasBlitzTriggeredInCurrentRound, setHasBlitzTriggeredInCurrentRound] = React.useState(false); // Флаг использования блица в текущем раунде
-      const [blitzSpinIndex, setBlitzSpinIndex] = React.useState(null); // Случайный индекс прокрутки для блица (4-9)
+      const [hasBlitzTriggeredInCurrentRound, setHasBlitzTriggeredInCurrentRound] = React.useState(false);
+      const [blitzSpinIndex, setBlitzSpinIndex] = React.useState(null);
 
       React.useEffect(() => {
-        // Устанавливаем случайный индекс для блица (4-9) при начале нового раунда
         if (currentRound >= 0 && !hasBlitzTriggeredInCurrentRound) {
           setBlitzSpinIndex(Math.floor(Math.random() * (9 - 4 + 1)) + 4);
         }
@@ -374,7 +295,7 @@
         setUsedBlitzQuestions([]);
         setCurrentBlitzQuestions([]);
         setHasBlitzTriggeredInCurrentRound(false);
-        setBlitzSpinIndex(Math.floor(Math.random() * (9 - 4 + 1)) + 4); // Устанавливаем случайный индекс для первого раунда
+        setBlitzSpinIndex(Math.floor(Math.random() * (9 - 4 + 1)) + 4);
         setGameState("roundIntro");
       };
 
@@ -382,9 +303,9 @@
         setRevealedLetters([]);
         setUsedLetters([]);
         setCurrentPlayerIndex(Math.floor(Math.random() * teams.length));
-        setSpinsInCurrentRound(0); // Сбрасываем счётчик прокруток для нового раунда
-        setHasBlitzTriggeredInCurrentRound(false); // Сбрасываем флаг блица
-        setBlitzSpinIndex(Math.floor(Math.random() * (9 - 4 + 1)) + 4); // Устанавливаем новый случайный индекс для блица
+        setSpinsInCurrentRound(0);
+        setHasBlitzTriggeredInCurrentRound(false);
+        setBlitzSpinIndex(Math.floor(Math.random() * (9 - 4 + 1)) + 4);
         setGameState("game");
       };
 
@@ -393,7 +314,6 @@
         setWheelSpinning(true);
         setCurrentSector(null);
 
-        // Увеличиваем счётчики прокруток
         const newTotalSpins = totalSpins + 1;
         const newSpinsInCurrentRound = spinsInCurrentRound + 1;
         setTotalSpins(newTotalSpins);
@@ -402,19 +322,14 @@
         let sector;
         let availableSectors = wheelSectors;
 
-        // Логика для "Чёрного ящика" во втором раунде (на 5-й, 6-й или 7-й прокрутке)
         if (currentRound === 1 && !hasBlackBoxTriggered && newSpinsInCurrentRound >= 5 && newSpinsInCurrentRound <= 7) {
           sector = wheelSectors.find(s => s.type === "blackbox");
-        }
-        // Логика для блиц-раунда (случайная прокрутка с 4-й по 9-ю в текущем раунде)
-        else if (!hasBlitzTriggeredInCurrentRound && newSpinsInCurrentRound === blitzSpinIndex && newSpinsInCurrentRound >= 4 && newSpinsInCurrentRound <= 9) {
+        } else if (!hasBlitzTriggeredInCurrentRound && newSpinsInCurrentRound === blitzSpinIndex && newSpinsInCurrentRound >= 4 && newSpinsInCurrentRound <= 9) {
           const availableQuestions = gameData.blitzQuestionsPool.filter(q => !usedBlitzQuestions.includes(q));
           if (availableQuestions.length >= 5) {
             sector = wheelSectors.find(s => s.type === "blitz");
           }
-        }
-        // Обычная логика выбора сектора
-        else {
+        } else {
           availableSectors = wheelSectors.filter(sector => {
             if (sector.type === "blackbox") {
               return currentRound === 1 && !hasBlackBoxTriggered && newSpinsInCurrentRound >= 5 && newSpinsInCurrentRound <= 7;
@@ -470,7 +385,7 @@
               setBlitzStarted(false);
               setBlitzAnswers([]);
               setTimeLeft(10);
-              setHasBlitzTriggeredInCurrentRound(true); // Устанавливаем флаг после успешного запуска
+              setHasBlitzTriggeredInCurrentRound(true);
               playAudio("blitz-start-audio", 0.5);
               break;
             case "plus":
@@ -509,6 +424,7 @@
           if (currentWord[position] && !revealedLetters.includes(position)) {
             setRevealedLetters([...revealedLetters, position]);
             setUsedLetters([...usedLetters, currentWord[position].toUpperCase()]);
+            playAudio("correct-letter-audio", 0.5);
           }
           setAnimationIndex(null);
           setShowPlusChoice(false);
@@ -593,8 +509,9 @@
           const animateNextLetter = () => {
             if (index < letterPositions.length) {
               setAnimationIndex(letterPositions[index]);
+              playAudio("correct-letter-audio", 0.5); // Звук при открытии каждой буквы
               index++;
-              setTimeout(animateNextLetter, 500); // Задержка 500 мс между анимациями
+              setTimeout(animateNextLetter, 500);
             } else {
               setRevealedLetters(prev => [...prev, ...letterPositions]);
               setUsedLetters([...usedLetters, upperLetter]);
@@ -603,7 +520,6 @@
                 newScores[teams[currentPlayerIndex]] += currentSector.value;
                 setScores(newScores);
               }
-              playAudio("correct-letter-audio", 0.5);
               if (revealedLetters.length + letterPositions.length === currentWord.length) {
                 setTimeout(() => {
                   endRound(teams[currentPlayerIndex]);
@@ -627,14 +543,14 @@
             : null;
           if (randomIndex !== null) {
             setAnimationIndex(randomIndex);
+            setTimeout(() => {
+              playAudio("wrong-letter-audio", 0.5); // Звук после анимации
+              setUsedLetters([...usedLetters, upperLetter]);
+              nextPlayer();
+              setCurrentSector(null);
+              setAnimationIndex(null);
+            }, 3500);
           }
-          setTimeout(() => {
-            setUsedLetters([...usedLetters, upperLetter]);
-            playAudio("wrong-letter-audio", 0.5);
-            nextPlayer();
-            setCurrentSector(null);
-            setAnimationIndex(null);
-          }, 3500);
         }
         setLetterShakeTimeout(setTimeout(() => setAnimationIndex(null), 3500));
       };
@@ -746,8 +662,9 @@
           const animateNextLetter = () => {
             if (index < letterPositions.length) {
               setAnimationIndex(letterPositions[index]);
+              playAudio("correct-letter-audio", 0.5);
               index++;
-              setTimeout(animateNextLetter, 500); // Задержка 500 мс между анимациями
+              setTimeout(animateNextLetter, 500);
             } else {
               setRevealedLetters([...revealedLetters, ...letterPositions]);
               setUsedLetters([...usedLetters, upperLetter]);
@@ -756,7 +673,6 @@
                 newScores[teams[currentPlayerIndex]] += currentSector.value;
                 setScores(newScores);
               }
-              playAudio("correct-letter-audio", 0.5);
               if (revealedLetters.length + letterPositions.length === currentWord.length) {
                 setTimeout(() => {
                   endFinalRound(teams[currentPlayerIndex]);
@@ -780,14 +696,14 @@
             : null;
           if (randomIndex !== null) {
             setAnimationIndex(randomIndex);
+            setTimeout(() => {
+              playAudio("wrong-letter-audio", 0.5);
+              setUsedLetters([...usedLetters, upperLetter]);
+              nextPlayer();
+              setCurrentSector(null);
+              setAnimationIndex(null);
+            }, 3500);
           }
-          setTimeout(() => {
-            setUsedLetters([...usedLetters, upperLetter]);
-            playAudio("wrong-letter-audio", 0.5);
-            nextPlayer();
-            setCurrentSector(null);
-            setAnimationIndex(null);
-          }, 3500);
         }
         setLetterShakeTimeout(setTimeout(() => setAnimationIndex(null), 3500));
       };
@@ -911,7 +827,7 @@
         audio.play().catch(error => {
           console.error(`Ошибка воспроизведения ${audioId}:`, error);
         });
-        setActiveAudios([audio]);
+        setActiveAudios(prev => [...prev, audio]);
       };
 
       const fadeAudio = (audioId, startTime, targetVolume) => {
@@ -1323,7 +1239,7 @@
           scale = lerp(scale, 1, 0.1);
           opacity = lerp(opacity, 255, 0.1);
           ctx.scale(scale, scale);
-          ctx.fillStyle = `rgba(0, 0, 0, ${opacity / 255})`;
+          ctx.fillStyle = `rgba(0,ОШИБКА 0, 0, ${opacity / 255})`;
           ctx.strokeStyle = `rgba(255, 255, 255, ${opacity / 255})`;
           ctx.lineWidth = 4;
           ctx.beginPath();
@@ -1765,7 +1681,6 @@
       );
     }
 
-    // Рендеринг приложения
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
