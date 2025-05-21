@@ -6,7 +6,6 @@
   <title>Поле Чудес</title>
   <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/p5@1.4.2/lib/p5.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
@@ -21,10 +20,45 @@
       font-size: 24px;
       font-weight: bold;
       margin: 5px;
+      transition: transform 0.5s ease, background-color 0.3s;
+      position: relative;
+      overflow: visible;
     }
     .letter-box.revealed {
       background-color: #f6ad55;
       color: #1a202c;
+    }
+    .letter-box.shake {
+      animation: shakeLetter 3.5s ease-out;
+    }
+    @keyframes shakeLetter {
+      0% { transform: translateX(0); }
+      10% { transform: translateX(-10px); }
+      20% { transform: translateX(10px); }
+      30% { transform: translateX(-10px); }
+      40% { transform: translateX(10px); }
+      50% { transform: translateX(-8px); }
+      60% { transform: translateX(8px); }
+      70% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+      90% { transform: translateX(-4px); }
+      100% { transform: translateX(0); }
+    }
+    .letter-box.wrong-word-shake {
+      animation: wrongWordShake 3.5s ease-out;
+    }
+    @keyframes wrongWordShake {
+      0% { transform: translateX(0); }
+      10% { transform: translateX(calc(var(--index) * -5px)); }
+      20% { transform: translateX(calc(var(--index) * 5px)); }
+      30% { transform: translateX(calc(var(--index) * -5px)); }
+      40% { transform: translateX(calc(var(--index) * 5px)); }
+      50% { transform: translateX(calc(var(--index) * -3px)); }
+      60% { transform: translateX(calc(var(--index) * 3px)); }
+      70% { transform: translateX(calc(var(--index) * -2px)); }
+      80% { transform: translateX(calc(var(--index) * 2px)); }
+      90% { transform: translateX(calc(var(--index) * -1px)); }
+      100% { transform: translateX(0); }
     }
     .wheel-pointer {
       position: absolute;
@@ -75,7 +109,6 @@
     .blitz-wrong {
       color: red;
     }
-    /* Podium Styles */
     .podium {
       display: flex;
       justify-content: center;
@@ -86,6 +119,8 @@
       margin: 0 auto;
       opacity: 0;
       animation: podiumFadeIn 1s ease-out forwards;
+      position: relative;
+      overflow: visible;
     }
     @keyframes podiumFadeIn {
       from { opacity: 0; transform: scale(0.5); }
@@ -112,64 +147,146 @@
       font-size: 20px;
       font-weight: bold;
     }
+    .volume-slider {
+      width: 100px;
+      margin: 10px auto;
+    }
+    .floating-circle {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.7;
+    }
+    @keyframes floatCircle {
+      0% { transform: translate(0, 0); opacity: 0.7; }
+      50% { opacity: 0.4; }
+      100% { transform: translate(var(--move-x), var(--move-y)); opacity: 0; }
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-white">
   <div id="root"></div>
+  <audio id="blitz-start-audio" src="блиц-вопрос начальное окошко.mp3"></audio>
+  <audio id="correct-blitz-audio" src="Верный ответ в блиц-вопросе.mp3"></audio>
+  <audio id="wheel-spin-audio" src="Кручение барабана.mp3"></audio>
+  <audio id="wrong-word-audio" src="Названо неверное слово целиком.mp3"></audio>
+  <audio id="wrong-blitz-audio" src="Неверный ответ в блиц-вопросе.mp3"></audio>
+  <audio id="wrong-letter-audio" src="Неправильно отгадана буква в слове.mp3"></audio>
+  <audio id="correct-letter-audio" src="Правильно отгадана буква в слове.mp3"></audio>
+  <audio id="word-guess-audio" src="word-guess.mp3"></audio>
+  <audio id="plus-sector-audio" src="сектор плюс.mp3"></audio>
+  <audio id="blackbox-sector-audio" src="сектор чёрный ящик.mp3"></audio>
+  <audio id="podium-fanfare-audio" src="Фанфары когда показываются 1,2,3 место и результаты игры.mp3"></audio>
 
   <script type="text/babel">
     // Данные игры
+    const wordPool = [
+      {
+        word: "БУРАВКИН",
+        question: "Фамилию какого белорусского поэта и общественного деятеля носит автор слов гимна Полоцкого государственного университета?"
+      },
+      {
+        word: "ПАРАБОЛОИД",
+        question: "Какая композиция, расположенная возле старого корпуса, отображает единение науки и современного искусства, став для нашего вуза своеобразным символом в год научных свершений и открытий?"
+      },
+      {
+        word: "ПЕРЕКРЁСТОК",
+        question: "Налево пойдёшь – перо найдёшь, направо пойдёшь – копейку найдёшь, прямо пойдёшь – знания получишь, назад пойдёшь – домой уйдёшь, о каком месте идёт речь?"
+      },
+      {
+        word: "КОЛЛЕГИУМ",
+        question: "Меня возвели для мудрости, но я не храм. Наполняли знаниями, но я не библиотека. Много раз ломали, но я не сломлен. Кто я?"
+      },
+      {
+        word: "БАЛКОН",
+        question: "Его топило, но он не тонул. На нём было много людей, но он не митинг и всегда находился выше земли."
+      },
+      {
+        word: "СФИНКС",
+        question: "Мифическое существо с телом льва и головой человека, охраняющее загадки."
+      },
+      {
+        word: "ГЕРАКЛ",
+        question: "Герой древнегреческих мифов, известный своими двенадцатью подвигами."
+      },
+      {
+        word: "ПИРАМИДА",
+        question: "Архитектурное сооружение, служившее гробницей фараонам в Древнем Египте."
+      },
+      {
+        word: "ОЛИМП",
+        question: "Гора, где, согласно мифам, обитали древнегреческие боги."
+      },
+      {
+        word: "АФИНА",
+        question: "Богиня мудрости и войны в древнегреческой мифологии."
+      },
+      {
+        word: "ЭЙФЕЛЬ",
+        question: "Фамилия архитектора, создавшего знаменитую башню в Париже."
+      },
+      {
+        word: "КОЛИЗЕЙ",
+        question: "Древнеримский амфитеатр, где проводились гладиаторские бои."
+      },
+      {
+        word: "КРЕМЛЬ",
+        question: "Историческая крепость в центре Москвы, символ России."
+      },
+      {
+        word: "САХАРА",
+        question: "Крупнейшая пустыня в мире, расположенная в Северной Африке."
+      },
+      {
+        word: "АМАЗОНКА",
+        question: "Самая длинная река в мире, протекающая через Южную Америку."
+      }
+    ];
+
     const gameData = {
-      rounds: [
-        {
-          theme: "Животные",
-          words: ["ЛЕОПАРД", "ЖИРАФ", "КРОКОДИЛ"],
-          questions: [
-            "Этот хищник из семейства кошачьих с пятнистой шкурой",
-            "Самое высокое животное на планете",
-            "Крупная рептилия с мощными челюстями"
-          ],
-          blitzQuestions: [
-            "Какое животное самое быстрое на суше? (гепард)",
-            "Какое животное имеет самый длинный язык? (муравьед)",
-            "Какое животное спит стоя? (лошадь)"
-          ]
-        },
-        {
-          theme: "Техника",
-          words: ["ХОЛОДИЛЬНИК", "ТЕЛЕВИЗОР", "СМАРТФОН"],
-          questions: [
-            "Бытовая техника для хранения продуктов при низкой температуре",
-            "Устройство для просмотра телепередач",
-            "Современный мобильный телефон с сенсорным экраном"
-          ],
-          blitzQuestions: [
-            "Какой компании принадлежит бренд iPhone? (Apple)",
-            "Как называется операционная система от Google? (Android)",
-            "Какой процессор чаще всего используют в компьютерах? (Intel)"
-          ]
-        },
-        {
-          theme: "Города",
-          words: ["ПАРИЖ", "ТОКИО", "МОСКВА"],
-          questions: [
-            "Столица Франции, город любви",
-            "Столица Японии, город небоскрёбов",
-            "Столица России, город на семи холмах"
-          ],
-          blitzQuestions: [
-            "Какой город называют 'Большим яблоком'? (Нью-Йорк)",
-            "В каком городе находится статуя Христа-Искупителя? (Рио-де-Жанейро)",
-            "Какой город самый населённый в мире? (Токио)"
-          ]
-        }
-      ],
+      rounds: [],
       finalRound: {
         theme: "Кино",
         word: "ОСКАР",
         question: "Самая престижная кинопремия"
-      }
+      },
+      blitzQuestionsPool: [
+        "Кол-во корпусов ПГУ? (5)",
+        "В каком году было 11 факультетов в ПГУ? (2005)",
+        "Кол-во ректоров за всю историю ПГУ? (около 15)",
+        "В каком корпусе нет актового зала? (4-й корпус)",
+        "Перевод фразы «DOCENDO DISCIMUS»? (Уча учим)",
+        "Сколько лет студенческому центру? (около 20)",
+        "На каком факультете располагаются 2 уникальные специальности в РБ? (Факультет компьютерных технологий)",
+        "Спортивный снаряд для игры в хоккей? (Клюшка)",
+        "Какой символ Полоцка, связанный с иезуитским наследием, украшает главный вход университета? (Крест иезуитов)",
+        "Какое архитектурное сооружение рядом с ПГУ было построено в честь 300-летия Полоцкой епархии? (Софийский собор)",
+        "Какой факультет ПГУ был основан последним в XXI веке? (Факультет экономики и права)",
+        "В каком году ПГУ получил современное название? (1993)",
+        "Эти люди основали альмаматр? (Иезуиты)",
+        "Самый главный человек на факультете? (Декан)",
+        "Фамилия ректора, пробывшего на посту 1 год? (Ковалёв)",
+        "Сколько цветов на эмблеме ПГУ? (3)",
+        "Какой предмет обязателен для всех студентов ПГУ? (Физическая культура)",
+        "Как называется студенческая газета ПГУ? (Вестник ПГУ)",
+        "Какое событие отмечается в ПГУ 1 сентября? (День знаний)",
+        "Как называется научный журнал ПГУ? (Вестник Полоцкого государственного университета)",
+        "Как называется Wi-Fi сеть, доступная студентам в новом корпусе? (PSU_Student)",
+        "Как называется объединение ПГУ для поддержки талантливой молодёжи? (Совет молодых учёных)",
+        "Как называется ежегодный конкурс научных работ среди студентов ПГУ? (Научная весна)",
+        "Как называется программа обмена студентами ПГУ с зарубежными вузами? (Erasmus+)",
+        "В каком году ПГУ начал реализацию программы двойных дипломов? (2016)"
+      ]
     };
+
+    // Генерация 5 раундов с фиксированными словами
+    function generateRounds() {
+      const selectedWords = wordPool.slice(0, 5);
+      const rounds = selectedWords.map(item => ({
+        word: item.word,
+        question: item.question
+      }));
+      gameData.rounds = rounds;
+    }
 
     const wheelSectors = [
       { type: "points", value: 350 },
@@ -184,8 +301,9 @@
       { type: "points", value: 850 },
       { type: "points", value: 950 },
       { type: "points", value: 1000 },
-      { type: "blackbox", value: 0 }, // Только один черный ящик
-      { type: "blitz", value: 0 }
+      { type: "blackbox", value: 0 },
+      { type: "blitz", value: 0 },
+      { type: "plus", value: 0 }
     ];
 
     // Основной компонент игры
@@ -193,7 +311,6 @@
       const [gameState, setGameState] = React.useState("teamInput");
       const [teams, setTeams] = React.useState([]);
       const [currentRound, setCurrentRound] = React.useState(0);
-      const [currentWordIndex, setCurrentWordIndex] = React.useState(0);
       const [revealedLetters, setRevealedLetters] = React.useState([]);
       const [usedLetters, setUsedLetters] = React.useState([]);
       const [wheelSpinning, setWheelSpinning] = React.useState(false);
@@ -215,16 +332,23 @@
       const [spinsInRound2, setSpinsInRound2] = React.useState(0);
       const [podiumTeams, setPodiumTeams] = React.useState([]);
       const [podiumVisible, setPodiumVisible] = React.useState({ 3: false, 2: false, 1: false });
+      const [showPlusChoice, setShowPlusChoice] = React.useState(false);
+      const [animationIndex, setAnimationIndex] = React.useState(null);
+      const [usedBlitzQuestions, setUsedBlitzQuestions] = React.useState([]);
+      const [currentBlitzQuestions, setCurrentBlitzQuestions] = React.useState([]);
+      const [volume, setVolume] = React.useState(0.5);
+      const [letterShakeTimeout, setLetterShakeTimeout] = React.useState(null);
+      const [wordShakeTimeout, setWordShakeTimeout] = React.useState(null);
+      const [activeAudios, setActiveAudios] = React.useState([]);
 
-      // Инициализация игры
       const startGame = (teamNames) => {
+        generateRounds();
         const initialTeams = teamNames.filter(name => name.trim() !== "");
         const initialScores = {};
         initialTeams.forEach(team => { initialScores[team] = 0; });
         setTeams(initialTeams);
         setScores(initialScores);
         setCurrentRound(0);
-        setCurrentWordIndex(0);
         setRevealedLetters([]);
         setUsedLetters([]);
         setCurrentPlayerIndex(0);
@@ -233,10 +357,13 @@
         setSpinsInRound2(0);
         setPodiumTeams([]);
         setPodiumVisible({ 3: false, 2: false, 1: false });
+        setShowPlusChoice(false);
+        setAnimationIndex(null);
+        setUsedBlitzQuestions([]);
+        setCurrentBlitzQuestions([]);
         setGameState("roundIntro");
       };
 
-      // Начало раунда
       const startRound = () => {
         setRevealedLetters([]);
         setUsedLetters([]);
@@ -247,90 +374,94 @@
         setGameState("game");
       };
 
-      // Вращение барабана
       const spinWheel = () => {
         if (wheelSpinning) return;
         setWheelSpinning(true);
         setCurrentSector(null);
-        console.log("Начинаем вращение барабана...");
 
         let sector;
         let availableSectors = wheelSectors;
 
-        // Логика для второго раунда
         if (currentRound === 1) {
           const newSpins = spinsInRound2 + 1;
           setSpinsInRound2(newSpins);
-          console.log(`Вращений во втором раунде: ${newSpins}`);
-
-          // Фильтруем сектора: черный ящик доступен только во 2-м раунде и если еще не был использован
           availableSectors = wheelSectors.filter(sector => {
             if (sector.type === "blackbox") {
               return currentRound === 1 && !hasBlackBoxTriggered;
             }
             return true;
           });
-
-          // Если черный ящик еще не выпал и это 10-е вращение, форсируем его
           if (!hasBlackBoxTriggered && newSpins >= 10) {
-            console.log("Форсируем черный ящик, так как он не выпал после 10 вращений");
             sector = wheelSectors.find(s => s.type === "blackbox");
           } else {
             const randomSectorIndex = Math.floor(Math.random() * availableSectors.length);
             sector = availableSectors[randomSectorIndex];
           }
         } else {
-          // В других раундах черный ящик недоступен
           availableSectors = wheelSectors.filter(sector => sector.type !== "blackbox");
           const randomSectorIndex = Math.floor(Math.random() * availableSectors.length);
           sector = availableSectors[randomSectorIndex];
         }
 
-        // Для расчета угла используем индекс из полного массива wheelSectors
         const originalIndex = wheelSectors.findIndex(s => s === sector);
         const sectorAngle = (2 * Math.PI / wheelSectors.length) * originalIndex - Math.PI / 2 + Math.PI / wheelSectors.length;
         setFinalAngle(-sectorAngle);
 
+        playAudio("wheel-spin-audio", 0.5);
+
         setTimeout(() => {
           setWheelSpinning(false);
           setCurrentSector(sector);
-          console.log(`Выпал сектор: ${sector.type === "points" ? sector.value + " очков" : sector.type}`);
+          stopAudio("wheel-spin-audio");
           switch(sector.type) {
             case "blackbox":
-              console.log("Активирован черный ящик!");
               setHasBlackBoxTriggered(true);
               setBlackBoxVisible(true);
+              playAudio("blackbox-sector-audio", 0.5);
               setTimeout(() => {
                 setBlackBoxVisible(false);
-                setShowBlackBoxChoice(true); // Показываем окно выбора очков для текущей команды
+                setShowBlackBoxChoice(true);
               }, 3000);
               break;
             case "blitz":
-              console.log("Показываем окно блиц-раунда!");
+              const availableQuestions = gameData.blitzQuestionsPool.filter(q => !usedBlitzQuestions.includes(q));
+              if (availableQuestions.length < 5) {
+                setShowBlitz(false);
+                setTimeout(() => {
+                  nextPlayer();
+                }, 1000);
+                break;
+              }
+              const selectedQuestions = availableQuestions.slice(0, 5);
+              setCurrentBlitzQuestions(selectedQuestions);
+              setUsedBlitzQuestions(prev => [...prev, ...selectedQuestions]);
               setShowBlitz(true);
               setBlitzStarted(false);
+              setBlitzAnswers([]);
+              setTimeLeft(10);
+              playAudio("blitz-start-audio", 0.5);
+              break;
+            case "plus":
+              setShowPlusChoice(true);
+              playAudio("plus-sector-audio", 0.5);
               break;
             default:
-              // Не добавляем очки сразу, только сохраняем сектор
               break;
           }
         }, 3000);
       };
 
-      // Обработка выбора очков для черного ящика
       const handleBlackBoxChoice = (points) => {
         const selectedTeam = teams[currentPlayerIndex];
         const newScores = { ...scores };
         newScores[selectedTeam] += points;
         setScores(newScores);
-        console.log(`Команде ${selectedTeam} начислено ${points} очков от черного ящика`);
         setShowBlackBoxChoice(false);
         setTimeout(() => {
           nextPlayer();
         }, 2000);
       };
 
-      // Отказ от черного ящика
       const handleBlackBoxDecline = () => {
         setShowBlackBoxChoice(false);
         setTimeout(() => {
@@ -338,10 +469,26 @@
         }, 2000);
       };
 
-      // Начало блица
+      const handlePlusChoice = (position) => {
+        const currentWord = gameData.rounds[currentRound]?.word;
+        if (!currentWord) return;
+        setAnimationIndex(position);
+        setTimeout(() => {
+          if (currentWord[position] && !revealedLetters.includes(position)) {
+            setRevealedLetters([...revealedLetters, position]);
+            setUsedLetters([...usedLetters, currentWord[position].toUpperCase()]);
+          }
+          setAnimationIndex(null);
+          setShowPlusChoice(false);
+          setTimeout(() => {
+            nextPlayer();
+          }, 1000);
+        }, 1000);
+      };
+
       const startBlitz = () => {
+        stopAudio("blitz-start-audio");
         setBlitzStarted(true);
-        setBlitzAnswers([]);
         setTimeLeft(10);
         const timer = setInterval(() => {
           setTimeLeft(prev => {
@@ -355,20 +502,19 @@
         setBlitzTimer(timer);
       };
 
-      // Проверка ответа в блице
-      const checkBlitzAnswer = (answer) => {
-        const currentRoundData = gameData.rounds[currentRound];
-        const questionIndex = blitzAnswers.length;
-        const correctAnswer = currentRoundData.blitzQuestions[questionIndex].match(/\(([^)]+)\)/)[1].toLowerCase();
-        const isCorrect = answer.toLowerCase() === correctAnswer;
+      const checkBlitzAnswer = (isCorrect) => {
+        const correctAnswer = currentBlitzQuestions[blitzAnswers.length].match(/\(([^)]+)\)/)[1].toLowerCase();
         const newAnswers = [...blitzAnswers, isCorrect];
         setBlitzAnswers(newAnswers);
         if (isCorrect) {
+          playAudio("correct-blitz-audio", 0.5);
           const newScores = { ...scores };
           newScores[teams[currentPlayerIndex]] += 100;
           setScores(newScores);
+        } else {
+          playAudio("wrong-blitz-audio", 0.5);
         }
-        if (newAnswers.length < 3) {
+        if (newAnswers.length < 5) {
           clearInterval(blitzTimer);
           setTimeLeft(10);
           const timer = setInterval(() => {
@@ -386,127 +532,157 @@
         }
       };
 
-      // Завершение блица
       const endBlitz = () => {
         clearInterval(blitzTimer);
         setBlitzTimer(null);
         setBlitzStarted(false);
         setTimeout(() => {
           setShowBlitz(false);
+          setCurrentBlitzQuestions([]);
           nextPlayer();
-        }, 2000);
+        }, 3300);
       };
 
-      // Проверка буквы
       const checkLetter = (letter) => {
         if (!letter || letter.length !== 1 || !currentSector) return;
         const upperLetter = letter.toUpperCase();
-        const currentWord = gameData.rounds[currentRound].words[currentWordIndex];
+        const currentWord = gameData.rounds[currentRound]?.word;
+        if (!currentWord) return;
         const letterPositions = [];
         for (let i = 0; i < currentWord.length; i++) {
           if (currentWord[i] === upperLetter && !revealedLetters.includes(i)) {
             letterPositions.push(i);
           }
         }
-        if (letterPositions.length > 0) {
-          console.log("Play correct answer sound");
-          setRevealedLetters([...revealedLetters, ...letterPositions]);
-          setUsedLetters([...usedLetters, upperLetter]);
-          if (currentSector.type === "points") {
-            const newScores = { ...scores };
-            newScores[teams[currentPlayerIndex]] += currentSector.value;
-            setScores(newScores);
-            console.log(`Игроку ${teams[currentPlayerIndex]} начислено ${currentSector.value} очков`);
-          }
-          if (revealedLetters.length + letterPositions.length === currentWord.length) {
-            setTimeout(() => {
-              endRound(teams[currentPlayerIndex]);
-            }, 2000);
-          } else {
-            setCurrentSector(null);
-          }
-        } else {
-          console.log("Play wrong answer sound");
-          setUsedLetters([...usedLetters, upperLetter]);
-          nextPlayer();
-          setCurrentSector(null);
-        }
-      };
 
-      // Проверка слова целиком
-      const checkWord = (word) => {
-        const currentWord = gameData.rounds[currentRound].words[currentWordIndex];
-        if (word.toUpperCase() === currentWord) {
-          console.log("Play victory sound");
-          const allLetters = [];
+        clearTimeout(letterShakeTimeout);
+        if (letterPositions.length > 0) {
+          setAnimationIndex(letterPositions[0]);
+          setTimeout(() => {
+            setRevealedLetters([...revealedLetters, ...letterPositions]);
+            setUsedLetters([...usedLetters, upperLetter]);
+            if (currentSector.type === "points") {
+              const newScores = { ...scores };
+              newScores[teams[currentPlayerIndex]] += currentSector.value;
+              setScores(newScores);
+            }
+            playAudio("correct-letter-audio", 0.5);
+            if (revealedLetters.length + letterPositions.length === currentWord.length) {
+              setTimeout(() => {
+                endRound(teams[currentPlayerIndex]);
+              }, 2000);
+            } else {
+              setCurrentSector(null);
+            }
+            setAnimationIndex(null);
+          }, 3500);
+        } else {
+          const unrevealedIndices = [];
           for (let i = 0; i < currentWord.length; i++) {
-            allLetters.push(i);
+            if (!revealedLetters.includes(i)) {
+              unrevealedIndices.push(i);
+            }
           }
-          setRevealedLetters(allLetters);
-          if (currentSector && currentSector.type === "points") {
-            const newScores = { ...scores };
-            newScores[teams[currentPlayerIndex]] += currentSector.value * 2; // Удваиваем очки
-            setScores(newScores);
-            console.log(`Игроку ${teams[currentPlayerIndex]} начислено ${currentSector.value * 2} очков за слово`);
+          const randomIndex = unrevealedIndices.length > 0 
+            ? unrevealedIndices[Math.floor(Math.random() * unrevealedIndices.length)] 
+            : null;
+          if (randomIndex !== null) {
+            setAnimationIndex(randomIndex);
           }
           setTimeout(() => {
-            endRound(teams[currentPlayerIndex]);
-          }, 2000);
-        } else {
-          console.log("Play wrong answer sound");
-          nextPlayer();
-          setCurrentSector(null);
+            setUsedLetters([...usedLetters, upperLetter]);
+            playAudio("wrong-letter-audio", 0.5);
+            nextPlayer();
+            setCurrentSector(null);
+            setAnimationIndex(null);
+          }, 3500);
         }
+        setLetterShakeTimeout(setTimeout(() => setAnimationIndex(null), 3500));
+      };
+
+      const checkWord = (word) => {
+        const currentWord = gameData.rounds[currentRound]?.word;
+        if (!currentWord) return;
+        clearTimeout(wordShakeTimeout);
+        if (word.toUpperCase() === currentWord) {
+          const lettersToReveal = [];
+          for (let i = 0; i < currentWord.length; i++) {
+            if (!revealedLetters.includes(i)) {
+              lettersToReveal.push(i);
+            }
+          }
+          setRevealedLetters(prev => [...prev, ...lettersToReveal]);
+          
+          let index = 0;
+          const interval = setInterval(() => {
+            if (index < currentWord.length) {
+              setAnimationIndex(index);
+              index++;
+            } else {
+              clearInterval(interval);
+              setAnimationIndex(null);
+              if (currentSector && currentSector.type === "points") {
+                const newScores = { ...scores };
+                newScores[teams[currentPlayerIndex]] += currentSector.value * 2;
+                setScores(newScores);
+              }
+              playAudio("word-guess-audio", 0.5);
+              setTimeout(() => {
+                endRound(teams[currentPlayerIndex]);
+              }, 2000);
+            }
+          }, 500);
+        } else {
+          for (let i = 0; i < currentWord.length; i++) {
+            setAnimationIndex(i);
+          }
+          setTimeout(() => {
+            setAnimationIndex(null);
+            playAudio("wrong-word-audio", 0.5);
+            const newScores = { ...scores };
+            newScores[teams[currentPlayerIndex]] -= currentSector && currentSector.type === "points" ? currentSector.value : 0;
+            setScores(newScores);
+            nextPlayer();
+            setCurrentSector(null);
+          }, 3500);
+        }
+        setWordShakeTimeout(setTimeout(() => {
+          for (let i = 0; i < currentWord.length; i++) {
+            setAnimationIndex(null);
+          }
+        }, 3500));
         setShowWordSlider(false);
         setWordGuess("");
       };
 
-      // Переход к следующему игроку
       const nextPlayer = () => {
         setCurrentPlayerIndex((prevIndex) => (prevIndex + 1) % teams.length);
         setCurrentSector(null);
       };
 
-      // Завершение раунда
       const endRound = (winner) => {
-        if (winner) {
-          const newWinners = [...winners, winner];
-          setWinners(newWinners);
-          if (currentRound < 2) {
-            setCurrentRound(currentRound + 1);
-            setCurrentWordIndex(0);
-            setGameState("roundIntro");
-          } else {
-            // После третьего раунда показываем пьедестал
-            const sortedTeams = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-            const topThree = sortedTeams.slice(0, 3).map(([team, score]) => ({ team, score }));
-            setPodiumTeams(topThree);
-            setGameState("podium");
-            // Анимация появления команд
-            setTimeout(() => setPodiumVisible(prev => ({ ...prev, 3: true })), 1000);
-            setTimeout(() => setPodiumVisible(prev => ({ ...prev, 2: true })), 2000);
-            setTimeout(() => setPodiumVisible(prev => ({ ...prev, 1: true })), 3000);
-          }
+        const newWinners = winner ? [...winners, winner] : winners;
+        setWinners(newWinners);
+        if (currentRound < 4 && gameData.rounds[currentRound]) {
+          setCurrentRound(prev => prev + 1);
+          setRevealedLetters([]);
+          setUsedLetters([]);
+          setCurrentSector(null);
+          setWheelSpinning(false);
+          setCurrentPlayerIndex(Math.floor(Math.random() * teams.length));
+          setGameState("roundIntro");
         } else {
-          if (currentRound < 2) {
-            setCurrentRound(currentRound + 1);
-            setCurrentWordIndex(0);
-            setGameState("roundIntro");
-          } else {
-            // После третьего раунда показываем пьедестал
-            const sortedTeams = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-            const topThree = sortedTeams.slice(0, 3).map(([team, score]) => ({ team, score }));
-            setPodiumTeams(topThree);
-            setGameState("podium");
-            // Анимация появления команд
-            setTimeout(() => setPodiumVisible(prev => ({ ...prev, 3: true })), 1000);
-            setTimeout(() => setPodiumVisible(prev => ({ ...prev, 2: true })), 2000);
-            setTimeout(() => setPodiumVisible(prev => ({ ...prev, 1: true })), 3000);
-          }
+          const sortedTeams = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+          const topThree = sortedTeams.slice(0, 3).map(([team, score]) => ({ team, score }));
+          setPodiumTeams(topThree);
+          setGameState("podium");
+          setTimeout(() => setPodiumVisible(prev => ({ ...prev, 3: true })), 1000);
+          setTimeout(() => setPodiumVisible(prev => ({ ...prev, 2: true })), 2000);
+          setTimeout(() => setPodiumVisible(prev => ({ ...prev, 1: true })), 3000);
+          playAudio("podium-fanfare-audio", 0.7);
         }
       };
 
-      // Начало финального раунда
       const startFinalRound = () => {
         setRevealedLetters([]);
         setUsedLetters([]);
@@ -514,9 +690,8 @@
         setGameState("final");
       };
 
-      // Проверка буквы в финальном раунде
       const checkFinalLetter = (letter) => {
-        if (!letter || letter.length !== 1 || !currentSector || currentSector.type !== "points") return;
+        if (!letter || letter.length !== 1 || !currentSector) return;
         const upperLetter = letter.toUpperCase();
         const currentWord = gameData.finalRound.word;
         const letterPositions = [];
@@ -525,81 +700,115 @@
             letterPositions.push(i);
           }
         }
-        if (letterPositions.length > 0) {
-          console.log("Play correct answer sound");
-          setRevealedLetters([...revealedLetters, ...letterPositions]);
-          setUsedLetters([...usedLetters, upperLetter]);
-          if (currentSector.type === "points") {
-            const newScores = { ...scores };
-            newScores[teams[currentPlayerIndex]] += currentSector.value;
-            setScores(newScores);
-            console.log(`Игроку ${teams[currentPlayerIndex]} начислено ${currentSector.value} очков`);
-          }
-          if (revealedLetters.length + letterPositions.length === currentWord.length) {
-            setTimeout(() => {
-              endFinalRound(teams[currentPlayerIndex]);
-            }, 2000);
-          } else {
-            setCurrentSector(null);
-          }
-        } else {
-          console.log("Play wrong answer sound");
-          setUsedLetters([...usedLetters, upperLetter]);
-          nextPlayer();
-          setCurrentSector(null);
-        }
-      };
 
-      // Проверка слова в финальном раунде
-      const checkFinalWord = (word) => {
-        if (word.toUpperCase() === gameData.finalRound.word) {
-          console.log("Play victory sound");
-          const allLetters = [];
-          for (let i = 0; i < gameData.finalRound.word.length; i++) {
-            allLetters.push(i);
+        clearTimeout(letterShakeTimeout);
+        if (letterPositions.length > 0) {
+          setAnimationIndex(letterPositions[0]);
+          setTimeout(() => {
+            setRevealedLetters([...revealedLetters, ...letterPositions]);
+            setUsedLetters([...usedLetters, upperLetter]);
+            if (currentSector.type === "points") {
+              const newScores = { ...scores };
+              newScores[teams[currentPlayerIndex]] += currentSector.value;
+              setScores(newScores);
+            }
+            playAudio("correct-letter-audio", 0.5);
+            if (revealedLetters.length + letterPositions.length === currentWord.length) {
+              setTimeout(() => {
+                endFinalRound(teams[currentPlayerIndex]);
+              }, 2000);
+            } else {
+              setCurrentSector(null);
+            }
+            setAnimationIndex(null);
+          }, 3500);
+        } else {
+          const unrevealedIndices = [];
+          for (let i = 0; i < currentWord.length; i++) {
+            if (!revealedLetters.includes(i)) {
+              unrevealedIndices.push(i);
+            }
           }
-          setRevealedLetters(allLetters);
-          if (currentSector && currentSector.type === "points") {
-            const newScores = { ...scores };
-            newScores[teams[currentPlayerIndex]] += currentSector.value * 2; // Удваиваем очки
-            setScores(newScores);
-            console.log(`Игроку ${teams[currentPlayerIndex]} начислено ${currentSector.value * 2} очков за слово`);
+          const randomIndex = unrevealedIndices.length > 0 
+            ? unrevealedIndices[Math.floor(Math.random() * unrevealedIndices.length)] 
+            : null;
+          if (randomIndex !== null) {
+            setAnimationIndex(randomIndex);
           }
           setTimeout(() => {
-            endFinalRound(teams[currentPlayerIndex]);
-          }, 2000);
+            setUsedLetters([...usedLetters, upperLetter]);
+            playAudio("wrong-letter-audio", 0.5);
+            nextPlayer();
+            setCurrentSector(null);
+            setAnimationIndex(null);
+          }, 3500);
+        }
+        setLetterShakeTimeout(setTimeout(() => setAnimationIndex(null), 3500));
+      };
+
+      const checkFinalWord = (word) => {
+        if (word.toUpperCase() === gameData.finalRound.word) {
+          const lettersToReveal = [];
+          for (let i = 0; i < gameData.finalRound.word.length; i++) {
+            if (!revealedLetters.includes(i)) lettersToReveal.push(i);
+          }
+          setRevealedLetters(prev => [...prev, ...lettersToReveal]);
+          
+          let index = 0;
+          const interval = setInterval(() => {
+            if (index < gameData.finalRound.word.length) {
+              setAnimationIndex(index);
+              index++;
+            } else {
+              clearInterval(interval);
+              setAnimationIndex(null);
+              if (currentSector && currentSector.type === "points") {
+                const newScores = { ...scores };
+                newScores[teams[currentPlayerIndex]] += currentSector.value * 2;
+                setScores(newScores);
+              }
+              playAudio("word-guess-audio", 0.5);
+              setTimeout(() => {
+                endFinalRound(teams[currentPlayerIndex]);
+              }, 2000);
+            }
+          }, 500);
         } else {
-          console.log("Play wrong answer sound");
-          nextPlayer();
-          setCurrentSector(null);
+          for (let i = 0; i < gameData.finalRound.word.length; i++) {
+            setAnimationIndex(i);
+          }
+          setTimeout(() => {
+            setAnimationIndex(null);
+            playAudio("wrong-word-audio", 0.5);
+            const newScores = { ...scores };
+            newScores[teams[currentPlayerIndex]] -= currentSector ? currentSector.value : 0;
+            setScores(newScores);
+            nextPlayer();
+            setCurrentSector(null);
+          }, 3500);
         }
         setShowWordSlider(false);
         setWordGuess("");
       };
 
-      // Завершение финального раунда
       const endFinalRound = (winner) => {
         setGameState("gameOver");
       };
 
-      // Открытие слайдера для ввода слова
       const openWordSlider = () => {
         setShowWordSlider(true);
       };
 
-      // Закрытие слайдера
       const closeWordSlider = () => {
         setShowWordSlider(false);
         setWordGuess("");
       };
 
-      // Перезапуск игры
       const restartGame = () => {
         setGameState("teamInput");
         setTeams([]);
         setScores({});
         setCurrentRound(0);
-        setCurrentWordIndex(0);
         setRevealedLetters([]);
         setUsedLetters([]);
         setCurrentPlayerIndex(0);
@@ -617,6 +826,61 @@
         setSpinsInRound2(0);
         setPodiumTeams([]);
         setPodiumVisible({ 3: false, 2: false, 1: false });
+        setShowPlusChoice(false);
+        setAnimationIndex(null);
+        setUsedBlitzQuestions([]);
+        setCurrentBlitzQuestions([]);
+        stopAllAudios();
+      };
+
+      const stopAllAudios = () => {
+        activeAudios.forEach(audio => {
+          audio.pause();
+          audio.currentTime = 0;
+        });
+        setActiveAudios([]);
+      };
+
+      const stopAudio = (audioId) => {
+        const audio = document.getElementById(audioId);
+        if (audio) {
+          audio.pause();
+          audio.currentTime = 0;
+          setActiveAudios(prev => prev.filter(a => a !== audio));
+        }
+      };
+
+      const playAudio = (audioId, volumeLevel) => {
+        stopAllAudios();
+        const audio = document.getElementById(audioId);
+        if (!audio) {
+          console.error(`Аудио с ID ${audioId} не найдено`);
+          return;
+        }
+        audio.volume = volumeLevel * (volume / 0.5);
+        audio.currentTime = 0;
+        audio.play().catch(error => {
+          console.error(`Ошибка воспроизведения ${audioId}:`, error);
+        });
+        setActiveAudios([audio]);
+      };
+
+      const fadeAudio = (audioId, startTime, targetVolume) => {
+        const audio = document.getElementById(audioId);
+        if (!audio) {
+          console.error(`Аудио с ID ${audioId} не найдено для затухания`);
+          return;
+        }
+        let currentTime = startTime;
+        const fadeInterval = setInterval(() => {
+          if (currentTime <= 0) {
+            audio.volume = targetVolume * (volume / 0.5);
+            clearInterval(fadeInterval);
+          } else {
+            audio.volume = (currentTime / startTime) * (volume / 0.5);
+            currentTime -= 0.1;
+          }
+        }, 100);
       };
 
       return (
@@ -627,17 +891,16 @@
           {gameState === "roundIntro" && (
             <RoundIntro 
               round={currentRound + 1}
-              theme={gameData.rounds[currentRound].theme}
               onStart={startRound}
             />
           )}
-          {gameState === "game" && (
+          {gameState === "game" && gameData.rounds[currentRound] && (
             <GameScreen
               teams={teams}
               currentPlayerIndex={currentPlayerIndex}
               scores={scores}
-              word={gameData.rounds[currentRound].words[currentWordIndex]}
-              question={gameData.rounds[currentRound].questions[currentWordIndex]}
+              word={gameData.rounds[currentRound].word}
+              question={gameData.rounds[currentRound].question}
               revealedLetters={revealedLetters}
               usedLetters={usedLetters}
               wheelSpinning={wheelSpinning}
@@ -647,6 +910,9 @@
               onOpenWordSlider={openWordSlider}
               blackBoxVisible={blackBoxVisible}
               finalAngle={finalAngle}
+              animationIndex={animationIndex}
+              volume={volume}
+              setVolume={setVolume}
             />
           )}
           {gameState === "finalIntro" && (
@@ -669,6 +935,9 @@
               onCheckLetter={checkFinalLetter}
               onOpenWordSlider={openWordSlider}
               finalAngle={finalAngle}
+              animationIndex={animationIndex}
+              volume={volume}
+              setVolume={setVolume}
             />
           )}
           {gameState === "gameOver" && (
@@ -692,12 +961,12 @@
             onSubmit={gameState === "final" ? checkFinalWord : checkWord}
             onClose={closeWordSlider}
           />
-          {showBlitz && (
+          {showBlitz && currentBlitzQuestions.length > 0 && (
             <BlitzScreen
-              question={gameData.rounds[currentRound].blitzQuestions[blitzAnswers.length]}
+              question={currentBlitzQuestions[blitzAnswers.length]?.split('(')[0] || "Вопрос не доступен"}
               timeLeft={timeLeft}
               blitzAnswers={blitzAnswers}
-              onAnswer={checkBlitzAnswer}
+              onCheckAnswer={checkBlitzAnswer}
               blitzStarted={blitzStarted}
               onStartBlitz={startBlitz}
             />
@@ -709,11 +978,17 @@
               onDecline={handleBlackBoxDecline}
             />
           )}
+          {showPlusChoice && gameData.rounds[currentRound]?.word && (
+            <PlusChoice
+              wordLength={gameData.rounds[currentRound].word.length}
+              onSelectPosition={handlePlusChoice}
+              onClose={() => setShowPlusChoice(false)}
+            />
+          )}
         </div>
       );
     }
 
-    // Компонент ввода команд
     function TeamInput({ onStart }) {
       const [teamNames, setTeamNames] = React.useState(["", "", "", "", ""]);
       const handleNameChange = (index, value) => {
@@ -754,12 +1029,10 @@
       );
     }
 
-    // Компонент введения в раунд
-    function RoundIntro({ round, theme, onStart }) {
+    function RoundIntro({ round, onStart }) {
       return (
         <div className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full text-center">
           <h1 className="text-2xl font-bold mb-4">Раунд {round}</h1>
-          <h2 className="text-xl mb-6">Тема: <span className="text-yellow-400">{theme}</span></h2>
           <button
             onClick={onStart}
             className="w-full mt-4 p-3 rounded font-bold bg-yellow-500 hover:bg-yellow-600"
@@ -770,7 +1043,6 @@
       );
     }
 
-    // Компонент игрового экрана
     function GameScreen({
       teams,
       currentPlayerIndex,
@@ -785,7 +1057,10 @@
       onCheckLetter,
       onOpenWordSlider,
       blackBoxVisible,
-      finalAngle
+      finalAngle,
+      animationIndex,
+      volume,
+      setVolume
     }) {
       const [letterInput, setLetterInput] = React.useState("");
       const handleLetterSubmit = (e) => {
@@ -821,7 +1096,8 @@
             {Array.from(word).map((_, index) => (
               <div 
                 key={index} 
-                className={`letter-box ${revealedLetters.includes(index) ? 'revealed' : ''}`}
+                className={`letter-box ${revealedLetters.includes(index) ? 'revealed' : ''} ${animationIndex === index ? 'shake' : ''}`}
+                style={{ '--index': index }}
               >
                 {revealedLetters.includes(index) ? word[index] : ''}
               </div>
@@ -879,82 +1155,102 @@
           </div>
           <div className="mt-6 text-center">
             <p>Использованные буквы: {usedLetters.join(", ")}</p>
+            <div className="volume-slider">
+              <label>Громкость: </label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={volume}
+                onChange={(e) => setVolume(parseFloat(e.target.value))}
+              />
+            </div>
           </div>
           {blackBoxVisible && <BlackBoxAnimation />}
         </div>
       );
     }
 
-    // Компонент барабана
     function Wheel({ spinning, sector, finalAngle }) {
-      const wheelRef = React.useRef(null);
-      const p5Ref = React.useRef(null);
+      const canvasRef = React.useRef(null);
       React.useEffect(() => {
-        const sketch = (p5) => {
-          let angle = 0;
-          let spinSpeed = 0;
-          const sectorAngles = Array(wheelSectors.length).fill(0).map((_, i) => p5.TWO_PI / wheelSectors.length * i - p5.PI/2);
-          p5.setup = () => {
-            const canvas = p5.createCanvas(400, 400);
-            canvas.parent(wheelRef.current);
-            p5.angleMode(p5.RADIANS);
-          };
-          p5.draw = () => {
-            p5.background(50);
-            p5.translate(200, 200);
-            if (spinning) {
-              spinSpeed = p5.lerp(spinSpeed, 0.1, 0.02);
-              angle += spinSpeed;
-            } else if (finalAngle !== 0) {
-              angle = p5.lerp(angle, finalAngle, 0.1);
-            }
-            p5.rotate(angle - p5.PI / 2);
-            for (let i = 0; i < wheelSectors.length; i++) {
-              const startAngle = sectorAngles[i];
-              const endAngle = sectorAngles[(i + 1) % wheelSectors.length];
-              if (wheelSectors[i].type === "blackbox") {
-                p5.fill(0);
-              } else if (wheelSectors[i].type === "blitz") {
-                p5.fill(255, 215, 0);
-              } else {
-                p5.fill(100, 150, 255);
-              }
-              p5.stroke(255);
-              p5.strokeWeight(2);
-              p5.arc(0, 0, 380, 380, startAngle, endAngle, p5.PIE);
-              p5.push();
-              p5.rotate((startAngle + endAngle) / 2);
-              p5.textSize(16);
-              p5.fill(0);
-              p5.textAlign(p5.CENTER, p5.CENTER);
-              if (wheelSectors[i].type === "blackbox") {
-                p5.text("Ящик", 120, 0);
-              } else if (wheelSectors[i].type === "blitz") {
-                p5.text("Блиц", 120, 0);
-              } else {
-                p5.text(wheelSectors[i].value, 120, 0);
-              }
-              p5.pop();
-            }
-            p5.fill(255);
-            p5.ellipse(0, 0, 40, 40);
-          };
-        };
-        p5Ref.current = new p5(sketch);
-        return () => {
-          if (p5Ref.current) {
-            p5Ref.current.remove();
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        let angle = 0;
+        let spinSpeed = 0;
+        const sectorAngles = Array(wheelSectors.length).fill(0).map((_, i) => (2 * Math.PI / wheelSectors.length) * i - Math.PI/2);
+
+        const draw = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.save();
+          ctx.translate(200, 200);
+          if (spinning) {
+            spinSpeed = lerp(spinSpeed, 0.1, 0.02);
+            angle += spinSpeed;
+          } else if (finalAngle !== 0) {
+            angle = lerp(angle, finalAngle, 0.1);
           }
+          ctx.rotate(angle - Math.PI / 2);
+          for (let i = 0; i < wheelSectors.length; i++) {
+            const startAngle = sectorAngles[i];
+            const endAngle = sectorAngles[(i + 1) % wheelSectors.length];
+            if (wheelSectors[i].type === "blackbox") {
+              ctx.fillStyle = '#000000';
+            } else if (wheelSectors[i].type === "blitz") {
+              ctx.fillStyle = '#FFD700';
+            } else if (wheelSectors[i].type === "plus") {
+              ctx.fillStyle = '#00FF00';
+            } else {
+              ctx.fillStyle = '#6495ED';
+            }
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, 190, startAngle, endAngle);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.save();
+            ctx.rotate((startAngle + endAngle) / 2);
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#000000';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            if (wheelSectors[i].type === "blackbox") {
+              ctx.fillText("Ящик", 120, 0);
+            } else if (wheelSectors[i].type === "blitz") {
+              ctx.fillText("Блиц", 120, 0);
+            } else if (wheelSectors[i].type === "plus") {
+              ctx.fillText("+", 120, 0);
+            } else {
+              ctx.fillText(wheelSectors[i].value, 120, 0);
+            }
+            ctx.restore();
+          }
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.arc(0, 0, 20, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.restore();
+
+          requestAnimationFrame(draw);
         };
+
+        const lerp = (start, end, t) => start + t * (end - start);
+        draw();
       }, [spinning, finalAngle]);
+
       return (
         <div className="relative">
-          <div ref={wheelRef}></div>
+          <canvas ref={canvasRef} width="400" height="400"></canvas>
           {sector && (
             <div className="mt-4 text-center">
               <p className="text-xl font-bold">
                 {sector.type === "blackbox" ? "Чёрный ящик!" : 
                  sector.type === "blitz" ? "Блиц-раунд!" : 
+                 sector.type === "plus" ? "Сектор '+'!" : 
                  `Выпало: ${sector.value} очков`}
               </p>
             </div>
@@ -963,49 +1259,52 @@
       );
     }
 
-    // Компонент анимации чёрного ящика
     function BlackBoxAnimation() {
-      const p5Ref = React.useRef(null);
+      const canvasRef = React.useRef(null);
       React.useEffect(() => {
-        const sketch = (p5) => {
-          let scale = 0;
-          let opacity = 0;
-          p5.setup = () => {
-            const canvas = p5.createCanvas(400, 300);
-            canvas.parent('black-box-animation');
-            canvas.style('position', 'fixed');
-            canvas.style('top', '50%');
-            canvas.style('left', '50%');
-            canvas.style('transform', 'translate(-50%, -50%)');
-            canvas.style('z-index', '100');
-          };
-          p5.draw = () => {
-            p5.clear();
-            scale = p5.lerp(scale, 1, 0.1);
-            opacity = p5.lerp(opacity, 255, 0.1);
-            p5.translate(p5.width / 2, p5.height / 2);
-            p5.scale(scale);
-            p5.fill(0, opacity);
-            p5.stroke(255, opacity);
-            p5.strokeWeight(4);
-            p5.rect(-150, -100, 300, 200, 20);
-            p5.fill(255, opacity);
-            p5.textSize(32);
-            p5.textAlign(p5.CENTER, p5.CENTER);
-            p5.text("Чёрный ящик", 0, 0);
-          };
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        let scale = 0;
+        let opacity = 0;
+
+        const draw = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.save();
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          scale = lerp(scale, 1, 0.1);
+          opacity = lerp(opacity, 255, 0.1);
+          ctx.scale(scale, scale);
+          ctx.fillStyle = `rgba(0, 0, 0, ${opacity / 255})`;
+          ctx.strokeStyle = `rgba(255, 255, 255, ${opacity / 255})`;
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.roundRect(-150, -100, 300, 200, 20);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = `rgba(255, 255, 255, ${opacity / 255})`;
+          ctx.font = '32px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText("Чёрный ящик", 0, 0);
+          ctx.restore();
+
+          requestAnimationFrame(draw);
         };
-        p5Ref.current = new p5(sketch);
-        return () => {
-          if (p5Ref.current) {
-            p5Ref.current.remove();
-          }
-        };
+
+        const lerp = (start, end, t) => start + t * (end - start);
+        draw();
       }, []);
-      return <div id="black-box-animation"></div>;
+
+      return (
+        <canvas
+          ref={canvasRef}
+          width="400"
+          height="300"
+          style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 100 }}
+        ></canvas>
+      );
     }
 
-    // Компонент выбора для черного ящика
     function BlackBoxChoice({ team, onAddPoints, onDecline }) {
       const [points, setPoints] = React.useState("");
 
@@ -1052,7 +1351,51 @@
       );
     }
 
-    // Компонент введения в финальный раунд
+    function PlusChoice({ wordLength, onSelectPosition, onClose }) {
+      const [position, setPosition] = React.useState("");
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        const pos = parseInt(position, 10) - 1;
+        if (pos >= 0 && pos < wordLength) {
+          onSelectPosition(pos);
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg shadow-lg text-center max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4">Сектор '+'</h3>
+            <p className="mb-4">Выберите позицию буквы (от 1 до {wordLength}):</p>
+            <form onSubmit={handleSubmit} className="flex flex-col items-center">
+              <input
+                type="number"
+                value={position}
+                onChange={(e) => setPosition(e.target.value)}
+                placeholder={`1 - ${wordLength}`}
+                className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:border-yellow-400 focus:outline-none mb-4"
+                min="1"
+                max={wordLength}
+              />
+              <button
+                type="submit"
+                disabled={!position || parseInt(position) < 1 || parseInt(position) > wordLength}
+                className={`px-6 py-2 rounded font-bold ${!position || parseInt(position) < 1 || parseInt(position) > wordLength ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+              >
+                Выбрать
+              </button>
+              <button
+                onClick={onClose}
+                className="mt-2 px-6 py-2 rounded font-bold bg-red-600 hover:bg-red-700"
+              >
+                Отмена
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
     function FinalIntro({ theme, onStart }) {
       return (
         <div className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full text-center">
@@ -1068,7 +1411,6 @@
       );
     }
 
-    // Компонент финального раунда
     function FinalScreen({
       teams,
       currentPlayerIndex,
@@ -1081,7 +1423,10 @@
       onSpinWheel,
       onCheckLetter,
       onOpenWordSlider,
-      finalAngle
+      finalAngle,
+      animationIndex,
+      volume,
+      setVolume
     }) {
       const [letterInput, setLetterInput] = React.useState("");
       const handleLetterSubmit = (e) => {
@@ -1106,7 +1451,8 @@
             {Array.from(word).map((_, index) => (
               <div 
                 key={index} 
-                className={`letter-box ${revealedLetters.includes(index) ? 'revealed' : ''}`}
+                className={`letter-box ${revealedLetters.includes(index) ? 'revealed' : ''} ${animationIndex === index ? 'shake' : ''}`}
+                style={{ '--index': index }}
               >
                 {revealedLetters.includes(index) ? word[index] : ''}
               </div>
@@ -1161,12 +1507,22 @@
           </div>
           <div className="mt-6 text-center">
             <p>Использованные буквы: {usedLetters.join(", ")}</p>
+            <div className="volume-slider">
+              <label>Громкость: </label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={volume}
+                onChange={(e) => setVolume(parseFloat(e.target.value))}
+              />
+            </div>
           </div>
         </div>
       );
     }
 
-    // Компонент слайдера для ввода слова
     function WordSlider({ isOpen, wordGuess, onWordGuessChange, onSubmit, onClose }) {
       const handleSubmit = (e) => {
         e.preventDefault();
@@ -1202,23 +1558,14 @@
       );
     }
 
-    // Компонент блиц-раунда
-    function BlitzScreen({ question, timeLeft, blitzAnswers, onAnswer, blitzStarted, onStartBlitz }) {
-      const [answer, setAnswer] = React.useState("");
-      const handleSubmit = (e) => {
-        e.preventDefault();
-        if (answer) {
-          onAnswer(answer);
-          setAnswer("");
-        }
-      };
+    function BlitzScreen({ question, timeLeft, blitzAnswers, onCheckAnswer, blitzStarted, onStartBlitz }) {
       return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-gray-800 p-6 rounded-lg shadow-lg text-center max-w-md w-full">
             <h3 className="text-xl font-bold mb-4">Блиц-раунд!</h3>
             {!blitzStarted ? (
               <>
-                <p className="mb-4">Подготовьтесь к трем быстрым вопросам!</p>
+                <p className="mb-4">Подготовьтесь к пяти быстрым вопросам!</p>
                 <button
                   onClick={onStartBlitz}
                   className="px-6 py-2 rounded font-bold bg-yellow-500 hover:bg-yellow-600"
@@ -1229,7 +1576,7 @@
             ) : (
               <>
                 {timeLeft > 0 && <p className="mb-2">Время: {timeLeft} сек</p>}
-                <p className="mb-4">{question.split('(')[0]}</p>
+                <p className="mb-4">{question}</p>
                 <div className="mb-4">
                   {blitzAnswers.map((isCorrect, index) => (
                     <span key={index}>
@@ -1241,22 +1588,20 @@
                     </span>
                   ))}
                 </div>
-                <form onSubmit={handleSubmit} className="flex flex-col items-center">
-                  <input
-                    type="text"
-                    value={answer}
-                    onChange={(e) => setAnswer(e.target.value)}
-                    placeholder="Ваш ответ"
-                    className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:border-yellow-400 focus:outline-none mb-2"
-                  />
+                <div className="flex justify-center gap-6">
                   <button
-                    type="submit"
-                    disabled={!answer}
-                    className={`px-6 py-2 rounded font-bold ${!answer ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                    onClick={() => onCheckAnswer(true)}
+                    className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded font-bold"
                   >
-                    Ответить
+                    ✓
                   </button>
-                </form>
+                  <button
+                    onClick={() => onCheckAnswer(false)}
+                    className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded font-bold"
+                  >
+                    ✗
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -1264,7 +1609,6 @@
       );
     }
 
-    // Компонент завершения игры
     function GameOver({ winners, scores, onRestart }) {
       return (
         <div className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full text-center">
@@ -1295,33 +1639,85 @@
       );
     }
 
-    // Компонент пьедестала
-    function Podium({ teams, podiumVisible, onFinish }) {
-      React.useEffect(() => {
-        const timer = setTimeout(() => {
-          onFinish();
-        }, 4000); // Переход к GameOver через 4 секунды после появления 1-го места
-        return () => clearTimeout(timer);
-      }, [onFinish]);
+    function FloatingCircles({ count = 30 }) {
+      const circles = React.useMemo(() => {
+        const colors = ['#FF6347', '#FFD700', '#00FF7F', '#1E90FF', '#FF69B4'];
+        return Array.from({ length: count }, (_, index) => {
+          const size = Math.random() * 10 + 5; // Размер от 5 до 15px
+          const startX = Math.random() * window.innerWidth;
+          const startY = Math.random() * window.innerHeight;
+          const moveX = (Math.random() - 0.5) * 200; // Смещение по X
+          const moveY = (Math.random() - 0.5) * 200; // Смещение по Y
+          const color = colors[Math.floor(Math.random() * colors.length)];
+          const duration = Math.random() * 3 + 2; // Длительность анимации от 2 до 5 секунд
+          const delay = Math.random() * 2; // Задержка до 2 секунд
+
+          return {
+            id: index,
+            style: {
+              width: `${size}px`,
+              height: `${size}px`,
+              backgroundColor: color,
+              left: `${startX}px`,
+              top: `${startY}px`,
+              animation: `floatCircle ${duration}s ease-in-out ${delay}s infinite`,
+              '--move-x': `${moveX}px`,
+              '--move-y': `${moveY}px`,
+            }
+          };
+        });
+      }, [count]);
 
       return (
-        <div className="podium">
-          {teams.map((teamData, index) => (
+        <div className="absolute inset-0 pointer-events-none z-10">
+          {circles.map(circle => (
             <div
-              key={index}
-              className={`podium-step ${podiumVisible[index + 1] ? 'visible' : ''}`}
-            >
-              <div>{index + 1} место</div>
-              <div className="podium-team">{teamData.team}</div>
-              <div>{teamData.score} очков</div>
-            </div>
+              key={circle.id}
+              className="floating-circle"
+              style={circle.style}
+            />
           ))}
         </div>
       );
     }
 
-    // Рендеринг приложения
-    ReactDOM.render(<App />, document.getElementById('root'));
+    function Podium({ teams, podiumVisible, onFinish }) {
+      React.useEffect(() => {
+        const timer = setTimeout(() => {
+          const hideTimer = setTimeout(() => {
+            onFinish();
+          }, 8000);
+          return () => clearTimeout(hideTimer);
+        }, 1000);
+        return () => clearTimeout(timer);
+      }, [onFinish]);
+
+      return (
+        <div className="relative w-full h-screen flex items-center justify-center">
+          <div className="podium">
+            {teams.map((teamData, index) => {
+              const position = teams.length - index;
+              return (
+                <div
+                  key={teamData.team}
+                  className={`podium-step ${podiumVisible[position] ? 'visible' : ''}`}
+                >
+                  <div className="podium-team text-black">
+                    {position} место<br />
+                    {teamData.team}<br />
+                    {teamData.score} очков
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <FloatingCircles count={30} />
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
   </script>
 </body>
 </html>
