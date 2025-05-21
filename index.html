@@ -7,7 +7,7 @@
   <script src="./react.development.js"></script>
   <script src="./react-dom.development.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.27.2/babel.min.js"></script>
+  <script src="./babel.min.js"></script>
   <style>
     .letter-box {
       width: 50px;
@@ -136,9 +136,9 @@
       opacity: 0;
       transition: opacity 0.5s ease-out;
     }
-    .podium-step:nth-child(1) { height: 300px; background-color: #FFD700; } /* Золотой для 1-го места */
-    .podium-step:nth-child(2) { height: 250px; background-color: #C0C0C0; } /* Серебряный для 2-го места */
-    .podium-step:nth-child(3) { height: 200px; background-color: #CD7F32; } /* Бронзовый для 3-го места */
+    .podium-step:nth-child(1) { height: 300px; background-color: #FFD700; }
+    .podium-step:nth-child(2) { height: 250px; background-color: #C0C0C0; }
+    .podium-step:nth-child(3) { height: 200px; background-color: #CD7F32; }
     .podium-step.visible {
       opacity: 1;
     }
@@ -255,7 +255,7 @@
       const [spinsInCurrentRound, setSpinsInCurrentRound] = React.useState(0);
       const [totalSpins, setTotalSpins] = React.useState(0);
       const [podiumTeams, setPodiumTeams] = React.useState([]);
-      const [podiumVisible, setPodiumVisible] = React.useState({ 1: false, 2: false, 3: false });
+      const [podiumVisible, setPodiumVisible] = React.useState({ 3: false, 2: false, 1: false });
       const [showPlusChoice, setShowPlusChoice] = React.useState(false);
       const [animationIndex, setAnimationIndex] = React.useState(null);
       const [usedBlitzQuestions, setUsedBlitzQuestions] = React.useState([]);
@@ -289,7 +289,7 @@
         setSpinsInCurrentRound(0);
         setTotalSpins(0);
         setPodiumTeams([]);
-        setPodiumVisible({ 1: false, 2: false, 3: false });
+        setPodiumVisible({ 3: false, 2: false, 1: false });
         setShowPlusChoice(false);
         setAnimationIndex(null);
         setUsedBlitzQuestions([]);
@@ -395,7 +395,7 @@
             default:
               break;
           }
-        }, 6500); // 6.5 секунд
+        }, 3000);
       };
 
       const handleBlackBoxChoice = (points) => {
@@ -509,7 +509,7 @@
           const animateNextLetter = () => {
             if (index < letterPositions.length) {
               setAnimationIndex(letterPositions[index]);
-              playAudio("correct-letter-audio", 0.5);
+              playAudio("correct-letter-audio", 0.5); // Звук при открытии каждой буквы
               index++;
               setTimeout(animateNextLetter, 500);
             } else {
@@ -544,7 +544,7 @@
           if (randomIndex !== null) {
             setAnimationIndex(randomIndex);
             setTimeout(() => {
-              playAudio("wrong-letter-audio", 0.5);
+              playAudio("wrong-letter-audio", 0.5); // Звук после анимации
               setUsedLetters([...usedLetters, upperLetter]);
               nextPlayer();
               setCurrentSector(null);
@@ -631,9 +631,9 @@
           const topThree = sortedTeams.slice(0, 3).map(([team, score]) => ({ team, score }));
           setPodiumTeams(topThree);
           setGameState("podium");
-          setTimeout(() => setPodiumVisible(prev => ({ ...prev, 1: true })), 1000);
+          setTimeout(() => setPodiumVisible(prev => ({ ...prev, 3: true })), 1000);
           setTimeout(() => setPodiumVisible(prev => ({ ...prev, 2: true })), 2000);
-          setTimeout(() => setPodiumVisible(prev => ({ ...prev, 3: true })), 3000);
+          setTimeout(() => setPodiumVisible(prev => ({ ...prev, 1: true })), 3000);
           playAudio("podium-fanfare-audio", 0.7);
         }
       };
@@ -788,7 +788,7 @@
         setSpinsInCurrentRound(0);
         setTotalSpins(0);
         setPodiumTeams([]);
-        setPodiumVisible({ 1: false, 2: false, 3: false });
+        setPodiumVisible({ 3: false, 2: false, 1: false });
         setShowPlusChoice(false);
         setAnimationIndex(null);
         setUsedBlitzQuestions([]);
@@ -1239,7 +1239,7 @@
           scale = lerp(scale, 1, 0.1);
           opacity = lerp(opacity, 255, 0.1);
           ctx.scale(scale, scale);
-          ctx.fillStyle = `rgba(0, 0, 0, ${opacity / 255})`;
+          ctx.fillStyle = `rgba(0,ОШИБКА 0, 0, ${opacity / 255})`;
           ctx.strokeStyle = `rgba(255, 255, 255, ${opacity / 255})`;
           ctx.lineWidth = 4;
           ctx.beginPath();
@@ -1605,82 +1605,86 @@
     }
 
     function FloatingCircles({ count = 30 }) {
-  const circles = React.useMemo(() => {
-    const colors = ['#FF6347', '#FFD700', '#00FF7F', '#1E90FF', '#FF69B4'];
-    return Array.from({ length: count }, (_, index) => {
-      const size = Math.random() * 10 + 5;
-      const startX = Math.random() * window.innerWidth;
-      const startY = Math.random() * window.innerHeight;
-      const moveX = (Math.random() - 0.4) * 200;
-      const moveY = (Math.random() - 0.4) * 200;
-      const color = colors[Math.floor(Math.random() * colors.length)];
-      const duration = Math.random() * 3 + 2; // Исправлено здесь
-      const delay = Math.random() * 2;
+      const circles = React.useMemo(() => {
+        const colors = ['#FF6347', '#FFD700', '#00FF7F', '#1E90FF', '#FF69B4'];
+        return Array.from({ length: count }, (_, index) => {
+          const size = Math.random() * 10 + 5;
+          const startX = Math.random() * window.innerWidth;
+          const startY = Math.random() * window.innerHeight;
+          const moveX = (Math.random() - 0.4) * 200;
+          const moveY = (Math.random() - 0.4) * 200;
+          const color = colors[Math.floor(Math.random() * colors.length)];
+          const duration = Math.random() * 3 + 2;
+          const delay = Math.random() * 2;
 
-      return {
-        id: index,
-        style: {
-          width: `${size}px`,
-          height: `${size}px`,
-          backgroundColor: color,
-          left: `${startX}px`,
-          top: `${startY}px`,
-          animation: `floatCircle ${duration}s ease-in-out ${delay}s infinite`,
-          '--move-x': `${moveX}px`,
-          '--move-y': `${moveY}px`,
-        }
-      };
-    });
-  }, [count]);
-
-  return (
-    <div className="absolute inset-0 pointer-events-none z-10">
-      {circles.map(circle => (
-        <div
-          key={circle.id}
-          className="floating-circle"
-          style={circle.style}
-        />
-      ))}
-    </div>
-  );
-}
-
-    function Podium({ teams, podiumVisible, onFinish }) {
-      React.useEffect(() => {
-        const timer = setTimeout(() => {
-          const hideTimer = setTimeout(() => {
-            onFinish();
-          }, 8000);
-          return () => clearTimeout(hideTimer);
-        }, 1000);
-        return () => clearTimeout(timer);
-      }, [onFinish]);
+          return {
+            id: index,
+            style: {
+              width: `${size}px`,
+              height: `${size}px`,
+              backgroundColor: color,
+              left: `${startX}px`,
+              top: `${startY}px`,
+              animation: `floatCircle ${duration}s ease-in-out ${delay}s infinite`,
+              '--move-x': `${moveX}px`,
+              '--move-y': `${moveY}px`,
+            }
+          };
+        });
+      }, [count]);
 
       return (
-        <div className="relative w-full h-screen flex items-center justify-center">
-          <FloatingCircles count={50} />
-          <div className="podium">
-            {teams.map((teamData, index) => {
-              const position = index + 1; // 1-е место: index 0, 2-е место: index 1, 3-е место: index 2
-              return (
-                <div
-                  key={teamData.team}
-                  className={`podium-step ${podiumVisible[position] ? 'visible' : ''}`}
-                >
-                  <div className="podium-team text-black">
-                    {position} место<br />
-                    {teamData.team}<br />
-                    {teamData.score} очков
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        <div className="absolute inset-0 pointer-events-none z-10">
+          {circles.map(circle => (
+            <div
+              key={circle.id}
+              className="floating-circle"
+              style={circle.style}
+            />
+          ))}
         </div>
       );
     }
 
+    function Podium({ teams, podiumVisible, onFinish }) {
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      const hideTimer = setTimeout(() => {
+        onFinish();
+      }, 8000);
+      return () => clearTimeout(hideTimer);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [onFinish]);
+
+  return (
+    <div className="relative w-full h-screen flex items-center justify-center">
+      <FloatingCircles count={50} />
+      <div className="podium">
+        {[0, 1, 2].map((index) => {
+          const position = index + 1;
+          const teamData = teams[index];
+          return (
+            <div
+              key={teamData.team}
+              className={`podium-step ${podiumVisible[position] ? 'visible' : ''}`}
+              style={{
+                height: index === 0 ? '300px' : index === 1 ? '250px' : '200px',
+                backgroundColor: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32',
+              }}
+            >
+              <div className="podium-team text-black">
+                {position} место<br />
+                {teamData.team}<br />
+                {teamData.score} очков
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
