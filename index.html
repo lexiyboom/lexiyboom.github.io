@@ -330,8 +330,8 @@
       const [blitzTimer, setBlitzTimer] = React.useState(null);
       const [timeLeft, setTimeLeft] = React.useState(10);
       const [finalAngle, setFinalAngle] = React.useState(0);
-      const [spinsInRound2, setSpinsInRound2] = React.useState(0);
-      const [totalSpins, setTotalSpins] = React.useState(0); // Добавлен счётчик общего количества прокруток
+      const [spinsInCurrentRound, setSpinsInCurrentRound] = React.useState(0); // Счётчик прокруток в текущем раунде
+      const [totalSpins, setTotalSpins] = React.useState(0); // Счётчик общего количества прокруток
       const [podiumTeams, setPodiumTeams] = React.useState([]);
       const [podiumVisible, setPodiumVisible] = React.useState({ 3: false, 2: false, 1: false });
       const [showPlusChoice, setShowPlusChoice] = React.useState(false);
@@ -342,7 +342,15 @@
       const [letterShakeTimeout, setLetterShakeTimeout] = React.useState(null);
       const [wordShakeTimeout, setWordShakeTimeout] = React.useState(null);
       const [activeAudios, setActiveAudios] = React.useState([]);
-      const [hasBlitzTriggeredInRound, setHasBlitzTriggeredInRound] = React.useState(false);
+      const [hasBlitzTriggeredInCurrentRound, setHasBlitzTriggeredInCurrentRound] = React.useState(false); // Флаг использования блица в текущем раунде
+      const [blitzSpinIndex, setBlitzSpinIndex] = React.useState(null); // Случайный индекс прокрутки для блица (4-9)
+
+      React.useEffect(() => {
+        // Устанавливаем случайный индекс для блица (4-9) при начале нового раунда
+        if (currentRound >= 0 && !hasBlitzTriggeredInCurrentRound) {
+          setBlitzSpinIndex(Math.floor(Math.random() * (9 - 4 + 1)) + 4);
+        }
+      }, [currentRound, hasBlitzTriggeredInCurrentRound]);
 
       const startGame = (teamNames) => {
         generateRounds();
@@ -357,15 +365,16 @@
         setCurrentPlayerIndex(0);
         setWinners([]);
         setHasBlackBoxTriggered(false);
-        setSpinsInRound2(0);
-        setTotalSpins(0); // Сбрасываем общее количество прокруток
+        setSpinsInCurrentRound(0);
+        setTotalSpins(0);
         setPodiumTeams([]);
         setPodiumVisible({ 3: false, 2: false, 1: false });
         setShowPlusChoice(false);
         setAnimationIndex(null);
         setUsedBlitzQuestions([]);
         setCurrentBlitzQuestions([]);
-        setHasBlitzTriggeredInRound(false);
+        setHasBlitzTriggeredInCurrentRound(false);
+        setBlitzSpinIndex(Math.floor(Math.random() * (9 - 4 + 1)) + 4); // Устанавливаем случайный индекс для первого раунда
         setGameState("roundIntro");
       };
 
@@ -373,10 +382,9 @@
         setRevealedLetters([]);
         setUsedLetters([]);
         setCurrentPlayerIndex(Math.floor(Math.random() * teams.length));
-        if (currentRound !== 1) {
-          setSpinsInRound2(0);
-        }
-        setHasBlitzTriggeredInRound(false);
+        setSpinsInCurrentRound(0); // Сбрасываем счётчик прокруток для нового раунда
+        setHasBlitzTriggeredInCurrentRound(false); // Сбрасываем флаг блица
+        setBlitzSpinIndex(Math.floor(Math.random() * (9 - 4 + 1)) + 4); // Устанавливаем новый случайный индекс для блица
         setGameState("game");
       };
 
@@ -387,22 +395,19 @@
 
         // Увеличиваем счётчики прокруток
         const newTotalSpins = totalSpins + 1;
+        const newSpinsInCurrentRound = spinsInCurrentRound + 1;
         setTotalSpins(newTotalSpins);
-        let newSpinsInRound2 = spinsInRound2;
-        if (currentRound === 1) {
-          newSpinsInRound2 = spinsInRound2 + 1;
-          setSpinsInRound2(newSpinsInRound2);
-        }
+        setSpinsInCurrentRound(newSpinsInCurrentRound);
 
         let sector;
         let availableSectors = wheelSectors;
 
         // Логика для "Чёрного ящика" во втором раунде (на 5-й, 6-й или 7-й прокрутке)
-        if (currentRound === 1 && !hasBlackBoxTriggered && newSpinsInRound2 >= 5 && newSpinsInRound2 <= 7) {
+        if (currentRound === 1 && !hasBlackBoxTriggered && newSpinsInCurrentRound >= 5 && newSpinsInCurrentRound <= 7) {
           sector = wheelSectors.find(s => s.type === "blackbox");
         }
-        // Логика для блиц-раунда (на 12-й или 13-й прокрутке общего количества)
-        else if (!hasBlitzTriggeredInRound && newTotalSpins >= 12 && newTotalSpins <= 13) {
+        // Логика для блиц-раунда (случайная прокрутка с 4-й по 9-ю в текущем раунде)
+        else if (!hasBlitzTriggeredInCurrentRound && newSpinsInCurrentRound === blitzSpinIndex && newSpinsInCurrentRound >= 4 && newSpinsInCurrentRound <= 9) {
           const availableQuestions = gameData.blitzQuestionsPool.filter(q => !usedBlitzQuestions.includes(q));
           if (availableQuestions.length >= 5) {
             sector = wheelSectors.find(s => s.type === "blitz");
@@ -412,7 +417,10 @@
         else {
           availableSectors = wheelSectors.filter(sector => {
             if (sector.type === "blackbox") {
-              return currentRound === 1 && !hasBlackBoxTriggered;
+              return currentRound === 1 && !hasBlackBoxTriggered && newSpinsInCurrentRound >= 5 && newSpinsInCurrentRound <= 7;
+            }
+            if (sector.type === "blitz") {
+              return !hasBlitzTriggeredInCurrentRound && newSpinsInCurrentRound === blitzSpinIndex && newSpinsInCurrentRound >= 4 && newSpinsInCurrentRound <= 9;
             }
             return true;
           });
@@ -430,7 +438,7 @@
           setWheelSpinning(false);
           setCurrentSector(sector);
           stopAudio("wheel-spin-audio");
-          switch(sector.type) {
+          switch(sector?.type) {
             case "blackbox":
               setHasBlackBoxTriggered(true);
               setBlackBoxVisible(true);
@@ -441,7 +449,7 @@
               }, 3000);
               break;
             case "blitz":
-              if (hasBlitzTriggeredInRound) {
+              if (hasBlitzTriggeredInCurrentRound) {
                 setTimeout(() => {
                   nextPlayer();
                 }, 1000);
@@ -462,7 +470,7 @@
               setBlitzStarted(false);
               setBlitzAnswers([]);
               setTimeLeft(10);
-              setHasBlitzTriggeredInRound(true);
+              setHasBlitzTriggeredInCurrentRound(true); // Устанавливаем флаг после успешного запуска
               playAudio("blitz-start-audio", 0.5);
               break;
             case "plus":
@@ -581,25 +589,32 @@
 
         clearTimeout(letterShakeTimeout);
         if (letterPositions.length > 0) {
-          setAnimationIndex(letterPositions[0]);
-          setTimeout(() => {
-            setRevealedLetters([...revealedLetters, ...letterPositions]);
-            setUsedLetters([...usedLetters, upperLetter]);
-            if (currentSector.type === "points") {
-              const newScores = { ...scores };
-              newScores[teams[currentPlayerIndex]] += currentSector.value;
-              setScores(newScores);
-            }
-            playAudio("correct-letter-audio", 0.5);
-            if (revealedLetters.length + letterPositions.length === currentWord.length) {
-              setTimeout(() => {
-                endRound(teams[currentPlayerIndex]);
-              }, 2000);
+          let index = 0;
+          const animateNextLetter = () => {
+            if (index < letterPositions.length) {
+              setAnimationIndex(letterPositions[index]);
+              index++;
+              setTimeout(animateNextLetter, 500); // Задержка 500 мс между анимациями
             } else {
-              setCurrentSector(null);
+              setRevealedLetters(prev => [...prev, ...letterPositions]);
+              setUsedLetters([...usedLetters, upperLetter]);
+              if (currentSector.type === "points") {
+                const newScores = { ...scores };
+                newScores[teams[currentPlayerIndex]] += currentSector.value;
+                setScores(newScores);
+              }
+              playAudio("correct-letter-audio", 0.5);
+              if (revealedLetters.length + letterPositions.length === currentWord.length) {
+                setTimeout(() => {
+                  endRound(teams[currentPlayerIndex]);
+                }, 2000);
+              } else {
+                setCurrentSector(null);
+              }
+              setAnimationIndex(null);
             }
-            setAnimationIndex(null);
-          }, 3500);
+          };
+          animateNextLetter();
         } else {
           const unrevealedIndices = [];
           for (let i = 0; i < currentWord.length; i++) {
@@ -727,25 +742,32 @@
 
         clearTimeout(letterShakeTimeout);
         if (letterPositions.length > 0) {
-          setAnimationIndex(letterPositions[0]);
-          setTimeout(() => {
-            setRevealedLetters([...revealedLetters, ...letterPositions]);
-            setUsedLetters([...usedLetters, upperLetter]);
-            if (currentSector.type === "points") {
-              const newScores = { ...scores };
-              newScores[teams[currentPlayerIndex]] += currentSector.value;
-              setScores(newScores);
-            }
-            playAudio("correct-letter-audio", 0.5);
-            if (revealedLetters.length + letterPositions.length === currentWord.length) {
-              setTimeout(() => {
-                endFinalRound(teams[currentPlayerIndex]);
-              }, 2000);
+          let index = 0;
+          const animateNextLetter = () => {
+            if (index < letterPositions.length) {
+              setAnimationIndex(letterPositions[index]);
+              index++;
+              setTimeout(animateNextLetter, 500); // Задержка 500 мс между анимациями
             } else {
-              setCurrentSector(null);
+              setRevealedLetters([...revealedLetters, ...letterPositions]);
+              setUsedLetters([...usedLetters, upperLetter]);
+              if (currentSector.type === "points") {
+                const newScores = { ...scores };
+                newScores[teams[currentPlayerIndex]] += currentSector.value;
+                setScores(newScores);
+              }
+              playAudio("correct-letter-audio", 0.5);
+              if (revealedLetters.length + letterPositions.length === currentWord.length) {
+                setTimeout(() => {
+                  endFinalRound(teams[currentPlayerIndex]);
+                }, 2000);
+              } else {
+                setCurrentSector(null);
+              }
+              setAnimationIndex(null);
             }
-            setAnimationIndex(null);
-          }, 3500);
+          };
+          animateNextLetter();
         } else {
           const unrevealedIndices = [];
           for (let i = 0; i < currentWord.length; i++) {
@@ -847,15 +869,16 @@
         setBlitzAnswers([]);
         if (blitzTimer) clearInterval(blitzTimer);
         setBlitzTimer(null);
-        setSpinsInRound2(0);
-        setTotalSpins(0); // Сбрасываем общее количество прокруток
+        setSpinsInCurrentRound(0);
+        setTotalSpins(0);
         setPodiumTeams([]);
         setPodiumVisible({ 3: false, 2: false, 1: false });
         setShowPlusChoice(false);
         setAnimationIndex(null);
         setUsedBlitzQuestions([]);
         setCurrentBlitzQuestions([]);
-        setHasBlitzTriggeredInRound(false);
+        setHasBlitzTriggeredInCurrentRound(false);
+        setBlitzSpinIndex(Math.floor(Math.random() * (9 - 4 + 1)) + 4);
         stopAllAudios();
       };
 
@@ -1672,8 +1695,8 @@
           const size = Math.random() * 10 + 5;
           const startX = Math.random() * window.innerWidth;
           const startY = Math.random() * window.innerHeight;
-          const moveX = (Math.random() - 0.5) * 200;
-          const moveY = (Math.random() - 0.5) * 200;
+          const moveX = (Math.random() - 0.4) * 200;
+          const moveY = (Math.random() - 0.4) * 200;
           const color = colors[Math.floor(Math.random() * colors.length)];
           const duration = Math.random() * 3 + 2;
           const delay = Math.random() * 2;
@@ -1720,6 +1743,7 @@
 
       return (
         <div className="relative w-full h-screen flex items-center justify-center">
+          <FloatingCircles count={50} />
           <div className="podium">
             {teams.map((teamData, index) => {
               const position = teams.length - index;
@@ -1737,11 +1761,11 @@
               );
             })}
           </div>
-          <FloatingCircles count={30} />
         </div>
       );
     }
 
+    // Рендеринг приложения
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
