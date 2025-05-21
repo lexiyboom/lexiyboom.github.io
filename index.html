@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Поле Чудес</title>
-  <script src="./react.development.js"></script>
-<script src="./react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
@@ -166,15 +166,15 @@
 <body class="bg-gray-900 text-white">
   <div id="root"></div>
   <audio id="blitz-start-audio" src="блиц-вопрос начальное окошко.mp3"></audio>
-  <audio id="correct-blitz-audio" src="Верный ответ в блиц-вопросе.mp3"></audio>
+  <audio id="correct-blitz-audio" src="верный ответ в блиц-вопросе.mp3"></audio>
   <audio id="wheel-spin-audio" src="Кручение барабана.mp3"></audio>
-  <audio id="wrong-word-audio" src="Названо неверное слово целиком.mp3"></audio>
-  <audio id="wrong-blitz-audio" src="Неверный ответ в блиц-вопросе.mp3"></audio>
-  <audio id="wrong-letter-audio" src="Неправильно отгадана буква в слове.mp3"></audio>
-  <audio id="correct-letter-audio" src="Правильно отгадана буква в слове.mp3"></audio>
+  <audio id="wrong-word-audio" src="названо неверное слово целиком.mp3"></audio>
+  <audio id="wrong-blitz-audio" src="неверный ответ в блиц-вопросе.mp3"></audio>
+  <audio id="wrong-letter-audio" src="неправильно отгадана буква в слове.mp3"></audio>
+  <audio id="correct-letter-audio" src="правильно отгадана буква в слове.mp3"></audio>
   <audio id="word-guess-audio" src="word-guess.mp3"></audio>
-  <audio id="plus-sector-audio" src="сектор плюс.mp3"></audio>
-  <audio id="blackbox-sector-audio" src="сектор чёрный ящик.mp3"></audio>
+  <audio id="plus-sector-audio" src="Сектор плюс.mp3"></audio>
+  <audio id="blackbox-sector-audio" src="Сектор чёрный ящик.mp3"></audio>
   <audio id="podium-fanfare-audio" src="Фанфары когда показываются 1,2,3 место и результаты игры.mp3"></audio>
 
   <script type="text/babel">
@@ -303,7 +303,8 @@
       { type: "points", value: 1000 },
       { type: "blackbox", value: 0 },
       { type: "blitz", value: 0 },
-      { type: "plus", value: 0 }
+      { type: "plus", value: 0 },
+      { type: "plus", value: 0 } // Добавлен второй сектор "+" для увеличения вероятности
     ];
 
     // Основной компонент игры
@@ -330,6 +331,7 @@
       const [timeLeft, setTimeLeft] = React.useState(10);
       const [finalAngle, setFinalAngle] = React.useState(0);
       const [spinsInRound2, setSpinsInRound2] = React.useState(0);
+      const [totalSpins, setTotalSpins] = React.useState(0); // Добавлен счётчик общего количества прокруток
       const [podiumTeams, setPodiumTeams] = React.useState([]);
       const [podiumVisible, setPodiumVisible] = React.useState({ 3: false, 2: false, 1: false });
       const [showPlusChoice, setShowPlusChoice] = React.useState(false);
@@ -340,6 +342,7 @@
       const [letterShakeTimeout, setLetterShakeTimeout] = React.useState(null);
       const [wordShakeTimeout, setWordShakeTimeout] = React.useState(null);
       const [activeAudios, setActiveAudios] = React.useState([]);
+      const [hasBlitzTriggeredInRound, setHasBlitzTriggeredInRound] = React.useState(false);
 
       const startGame = (teamNames) => {
         generateRounds();
@@ -355,12 +358,14 @@
         setWinners([]);
         setHasBlackBoxTriggered(false);
         setSpinsInRound2(0);
+        setTotalSpins(0); // Сбрасываем общее количество прокруток
         setPodiumTeams([]);
         setPodiumVisible({ 3: false, 2: false, 1: false });
         setShowPlusChoice(false);
         setAnimationIndex(null);
         setUsedBlitzQuestions([]);
         setCurrentBlitzQuestions([]);
+        setHasBlitzTriggeredInRound(false);
         setGameState("roundIntro");
       };
 
@@ -371,6 +376,7 @@
         if (currentRound !== 1) {
           setSpinsInRound2(0);
         }
+        setHasBlitzTriggeredInRound(false);
         setGameState("game");
       };
 
@@ -379,26 +385,37 @@
         setWheelSpinning(true);
         setCurrentSector(null);
 
+        // Увеличиваем счётчики прокруток
+        const newTotalSpins = totalSpins + 1;
+        setTotalSpins(newTotalSpins);
+        let newSpinsInRound2 = spinsInRound2;
+        if (currentRound === 1) {
+          newSpinsInRound2 = spinsInRound2 + 1;
+          setSpinsInRound2(newSpinsInRound2);
+        }
+
         let sector;
         let availableSectors = wheelSectors;
 
-        if (currentRound === 1) {
-          const newSpins = spinsInRound2 + 1;
-          setSpinsInRound2(newSpins);
+        // Логика для "Чёрного ящика" во втором раунде (на 5-й, 6-й или 7-й прокрутке)
+        if (currentRound === 1 && !hasBlackBoxTriggered && newSpinsInRound2 >= 5 && newSpinsInRound2 <= 7) {
+          sector = wheelSectors.find(s => s.type === "blackbox");
+        }
+        // Логика для блиц-раунда (на 12-й или 13-й прокрутке общего количества)
+        else if (!hasBlitzTriggeredInRound && newTotalSpins >= 12 && newTotalSpins <= 13) {
+          const availableQuestions = gameData.blitzQuestionsPool.filter(q => !usedBlitzQuestions.includes(q));
+          if (availableQuestions.length >= 5) {
+            sector = wheelSectors.find(s => s.type === "blitz");
+          }
+        }
+        // Обычная логика выбора сектора
+        else {
           availableSectors = wheelSectors.filter(sector => {
             if (sector.type === "blackbox") {
               return currentRound === 1 && !hasBlackBoxTriggered;
             }
             return true;
           });
-          if (!hasBlackBoxTriggered && newSpins >= 10) {
-            sector = wheelSectors.find(s => s.type === "blackbox");
-          } else {
-            const randomSectorIndex = Math.floor(Math.random() * availableSectors.length);
-            sector = availableSectors[randomSectorIndex];
-          }
-        } else {
-          availableSectors = wheelSectors.filter(sector => sector.type !== "blackbox");
           const randomSectorIndex = Math.floor(Math.random() * availableSectors.length);
           sector = availableSectors[randomSectorIndex];
         }
@@ -424,6 +441,12 @@
               }, 3000);
               break;
             case "blitz":
+              if (hasBlitzTriggeredInRound) {
+                setTimeout(() => {
+                  nextPlayer();
+                }, 1000);
+                break;
+              }
               const availableQuestions = gameData.blitzQuestionsPool.filter(q => !usedBlitzQuestions.includes(q));
               if (availableQuestions.length < 5) {
                 setShowBlitz(false);
@@ -439,6 +462,7 @@
               setBlitzStarted(false);
               setBlitzAnswers([]);
               setTimeLeft(10);
+              setHasBlitzTriggeredInRound(true);
               playAudio("blitz-start-audio", 0.5);
               break;
             case "plus":
@@ -824,12 +848,14 @@
         if (blitzTimer) clearInterval(blitzTimer);
         setBlitzTimer(null);
         setSpinsInRound2(0);
+        setTotalSpins(0); // Сбрасываем общее количество прокруток
         setPodiumTeams([]);
         setPodiumVisible({ 3: false, 2: false, 1: false });
         setShowPlusChoice(false);
         setAnimationIndex(null);
         setUsedBlitzQuestions([]);
         setCurrentBlitzQuestions([]);
+        setHasBlitzTriggeredInRound(false);
         stopAllAudios();
       };
 
@@ -1643,14 +1669,14 @@
       const circles = React.useMemo(() => {
         const colors = ['#FF6347', '#FFD700', '#00FF7F', '#1E90FF', '#FF69B4'];
         return Array.from({ length: count }, (_, index) => {
-          const size = Math.random() * 10 + 5; // Размер от 5 до 15px
+          const size = Math.random() * 10 + 5;
           const startX = Math.random() * window.innerWidth;
           const startY = Math.random() * window.innerHeight;
-          const moveX = (Math.random() - 0.5) * 200; // Смещение по X
-          const moveY = (Math.random() - 0.5) * 200; // Смещение по Y
+          const moveX = (Math.random() - 0.5) * 200;
+          const moveY = (Math.random() - 0.5) * 200;
           const color = colors[Math.floor(Math.random() * colors.length)];
-          const duration = Math.random() * 3 + 2; // Длительность анимации от 2 до 5 секунд
-          const delay = Math.random() * 2; // Задержка до 2 секунд
+          const duration = Math.random() * 3 + 2;
+          const delay = Math.random() * 2;
 
           return {
             id: index,
